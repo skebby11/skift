@@ -82,6 +82,17 @@ struct ContentView: View {
             Label(reason, systemImage: "exclamationmark.triangle")
                 .foregroundStyle(.orange)
         case .idle:
+            // Guided first-run flow: most "it doesn't connect" cases are a
+            // sleeping trainer or another app holding it, so say it upfront.
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Connect your trainer")
+                    .font(.headline)
+                Label("Power the trainer and spin the pedals to wake it", systemImage: "1.circle")
+                Label("Close other trainer apps (Zwift, MyWhoosh…) — only one can control it", systemImage: "2.circle")
+                Label("Scan and pick it from the list", systemImage: "3.circle")
+            }
+            .font(.callout)
+            .foregroundStyle(.secondary)
             Button("Scan for trainers", systemImage: "antenna.radiowaves.left.and.right") {
                 trainer.startScan()
             }
@@ -92,6 +103,11 @@ struct ContentView: View {
                 Text("Scanning for FTMS trainers…")
                 Spacer()
                 Button("Stop") { trainer.stopScan() }
+            }
+            if trainer.discovered.isEmpty {
+                Text("Nothing yet? Spin the pedals — most trainers only advertise when awake.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
             }
             deviceList
         case .connecting:

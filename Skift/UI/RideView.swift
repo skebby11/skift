@@ -16,8 +16,17 @@ struct RideView: View {
             )
             .frame(minHeight: 300)
             .clipShape(RoundedRectangle(cornerRadius: 8))
-            Grid(alignment: .leading, horizontalSpacing: 32, verticalSpacing: 8) {
+            // Zwift-style overlay: top-down mini map in the corner.
+            .overlay(alignment: .topTrailing) {
+                MiniMapView(layout: engine.layout, positionMeters: engine.distanceMeters)
+                    .frame(width: 130, height: 130)
+                    .padding(10)
+            }
+            Grid(alignment: .leading, horizontalSpacing: 28, verticalSpacing: 8) {
                 GridRow {
+                    // Power leads: training is power-based, it's THE number.
+                    metric("Power", "\(engine.powerWatts)", unit: "W", emphasized: true)
+                    metric("Cadence", engine.cadenceRpm.map { String(format: "%.0f", $0) } ?? "—", unit: "rpm")
                     metric("Speed", String(format: "%.1f", engine.speedKmh), unit: "km/h")
                     metric("Distance", String(format: "%.2f", engine.totalDistanceMeters / 1000), unit: "km")
                     metric("Gradient", String(format: "%+.1f", engine.gradientPercent), unit: "%")
@@ -29,15 +38,16 @@ struct RideView: View {
         }
     }
 
-    private func metric(_ label: String, _ value: String, unit: String) -> some View {
+    private func metric(_ label: String, _ value: String, unit: String, emphasized: Bool = false) -> some View {
         VStack(alignment: .leading, spacing: 2) {
             Text(label)
                 .font(.caption)
                 .foregroundStyle(.secondary)
             HStack(alignment: .firstTextBaseline, spacing: 4) {
                 Text(value)
-                    .font(.system(size: 24, weight: .semibold, design: .rounded))
+                    .font(.system(size: emphasized ? 32 : 24, weight: emphasized ? .bold : .semibold, design: .rounded))
                     .monospacedDigit()
+                    .foregroundStyle(emphasized ? AnyShapeStyle(.orange) : AnyShapeStyle(.primary))
                 Text(unit)
                     .font(.callout)
                     .foregroundStyle(.secondary)
