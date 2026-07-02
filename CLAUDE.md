@@ -4,9 +4,15 @@ Open-source alternative to Zwift: an e-cycling app where your avatar rides a vir
 world and your smart trainer's resistance is synced to the terrain over Bluetooth,
 so climbs feel like climbs.
 
-**Current status: PLANNING.** No code yet. Read `Plan.md` before doing anything —
-it contains the full research, architecture, roadmap, and the decision log.
-Do not start implementing until the open decisions in `Plan.md` are resolved.
+**Current status: PLANNING COMPLETE, ready for M0.** No code yet. Read `Plan.md`
+before doing anything — it contains the full research, architecture, roadmap,
+and the decision log. All v1 decisions are resolved:
+
+- **Stack**: Swift + SwiftUI + RealityKit + Core Bluetooth (native macOS app;
+  future iOS/iPadOS/tvOS targets share the codebase).
+- **Map**: one fictional low-poly island loop, ~8–10 km.
+- **License**: Apache-2.0.
+- **Dev trainer**: Van Rysel D500 (BLE FTMS native).
 
 ## Project goals (v1 / MVP)
 

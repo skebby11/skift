@@ -137,23 +137,25 @@ Notes on the common web-stack worries:
   in any iOS browser, and Electron doesn't target iOS. **Choosing C means
   iOS/App Store-on-iPhone is off the table unless the app is later ported.**
 
-**Recommendation (updated): C — TypeScript + Three.js + Web Bluetooth,
-wrapped in Electron when we want an installable Mac app / Mac App Store
-distribution.** Rationale: it's the only option where the team's existing
-skills apply on day one, MVP speed is the top project risk, and the 3D
-ceiling is a non-issue for a low-poly world. Choose A only if native
-iPhone/iPad/Apple TV distribution is a hard v1–v2 requirement.
+**DECIDED: A — Swift + SwiftUI + RealityKit + Core Bluetooth.** The web
+stack was recommended for MVP speed, but native iPhone/iPad/Apple TV reach
+and a first-class App Store path were judged worth the Swift/Xcode learning
+curve. Consequences accepted: no Windows/Linux, and the roadmap absorbs an
+onboarding cost (see M0/M1 and Risks).
 
 ## 6. Roadmap
 
 Each milestone is independently demo-able. Rough effort assumes part-time work.
 
-- **M0 — Setup** (done when decisions below are resolved): repo scaffolding,
-  license, CI, project skeleton.
+- **M0 — Setup**: Xcode project scaffolding (SwiftUI macOS app target),
+  Apache-2.0 LICENSE, README, CI (GitHub Actions macOS runner, build + tests).
+  Includes Swift/Xcode onboarding for a web-background developer — M0/M1 are
+  deliberately small so the language is learned on real, tiny features.
 - **M1 — BLE spike** *(the de-risking milestone, ~1–2 weeks)*: minimal app
-  that scans, connects to the trainer, streams live power/cadence to screen,
-  and has a slope slider that changes trainer resistance via FTMS SIM mode.
-  No 3D. If M1 works, the project works.
+  that scans, connects to the trainer (Van Rysel D500), streams live
+  power/cadence to screen, and has a slope slider that changes trainer
+  resistance via FTMS SIM mode (Core Bluetooth). No 3D. If M1 works, the
+  project works.
 - **M2 — Ride engine** (~1–2 weeks): physics model, route model
   (spline + elevation), rider profile (weight), 2D debug view: elevation
   profile with a dot moving along it, auto slope-sync to trainer.
@@ -182,15 +184,13 @@ actual multiplayer (hardest), Windows/Linux (if stack B), iOS/tvOS (if stack A).
 |---|---|
 | Trainer quirks (FTMS implementations vary by brand) | Test with owned trainer first; M1 isolates this; community test matrix later |
 | 3D content takes forever | Low-poly style; buy/CC0 asset packs; one map only |
-| BLE in Godot (if stack B) | Prototype the plugin in week 1 or pick stack A |
+| Swift/Xcode learning curve (team is web-background) | M0–M2 sized as learning milestones; SwiftUI is declarative (familiar to React-style devs); lean on Apple sample code for RealityKit |
 | Scope creep toward Zwift parity | Non-goals list in CLAUDE.md; v1 = solo riding only |
 | macOS BLE permissions/sandbox | Known path: `NSBluetoothAlwaysUsageDescription`, works in App Store sandbox |
 
-## 8. Open decisions (waiting on Sebastiano)
+## 8. Open decisions
 
-1. **Tech stack**: A. Swift/RealityKit · B. Godot 4 · C. Web (recommended) —
-   see §5, updated after clarifying team skills (web-only) and the iOS
-   trade-off. Confirmation pending.
+None — all v1 decisions are resolved (see Decision log). Next step: M0.
 
 ## 9. Decision log
 
@@ -202,3 +202,4 @@ actual multiplayer (hardest), Windows/Linux (if stack B), iOS/tvOS (if stack A).
 | 2026-07-02 | Map: fictional low-poly island (~8–10 km loop) | Achievable solo, ages well aesthetically; real-GPX terrain deferred |
 | 2026-07-02 | License: Apache-2.0 | Permissive like MIT plus explicit patent grant |
 | 2026-07-02 | Test hardware: Van Rysel D500 (Decathlon) | Owned by the team; supports BLE FTMS natively (plus ANT+ and Zwift Cog/Click), 15% max grade simulation — ideal dev target |
+| 2026-07-02 | Stack: Swift + SwiftUI + RealityKit + Core Bluetooth | iPhone/iPad/Apple TV reach and first-class App Store path judged worth the learning curve vs. the web stack (§5) |
