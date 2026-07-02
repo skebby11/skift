@@ -23,6 +23,15 @@ public struct RiderProfile: Equatable {
 /// balance (drive vs. gravity, rolling resistance and aero drag). Integration
 /// instead of steady-state solving makes starts, coasting and descents behave
 /// naturally: at 0 W on a descent gravity still accelerates the rider.
+///
+/// Simplifications, all fine for v1 but listed for honesty:
+/// - no drivetrain losses (real bikes lose ~2–3% between pedals and wheel);
+/// - no wind, no drafting;
+/// - rotating-mass inertia (wheels) is ignored;
+/// - the descent freewheel has no braking model, so long steep descents reach
+///   physically-correct-but-scary speeds.
+/// REVIEW: compare in-game speeds with Zwift/real rides on the same power
+/// during hardware testing and tune Crr/CdA defaults if they feel off.
 public struct PhysicsEngine {
 
     public static let airDensityKgM3 = 1.226

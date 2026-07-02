@@ -21,7 +21,9 @@ public final class RideEngine: ObservableObject {
     @Published public private(set) var elevationMeters: Double
 
     /// Fraction of the real gradient sent to the trainer (Zwift's "trainer
-    /// difficulty"); physics always uses the full gradient.
+    /// difficulty"); physics always uses the full gradient, so this changes
+    /// how climbs FEEL, not how fast the avatar goes.
+    /// REVIEW: 0.5 matches Zwift's default; exposed in Settings (M4).
     public var trainerDifficulty: Double = 0.5
 
     public let route: Route
