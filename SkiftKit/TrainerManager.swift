@@ -14,6 +14,13 @@ public struct DiscoveredTrainer: Identifiable, Equatable {
 /// Handshake on connect: discover the FTMS service, subscribe to Indoor Bike
 /// Data notifications and Control Point indications, then Request Control and
 /// Start/Resume. Simulation commands only take effect once control is granted.
+///
+/// REVIEW (to verify on the Van Rysel D500 during hardware testing):
+/// - whether the D500 requires Start/Resume after Request Control, or accepts
+///   simulation parameters straight away;
+/// - behaviour when another app (Zwift) already holds control;
+/// - auto-reconnect after a dropped link is NOT implemented yet — the ride
+///   just stops publishing data. Planned for the hardening pass (Plan.md M4/M5).
 public final class TrainerManager: NSObject, ObservableObject {
 
     public enum ConnectionState: Equatable {

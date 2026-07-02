@@ -1,3 +1,6 @@
+# Builds the app and runs the SkiftKit unit tests on a macOS runner.
+# This is the project's compile gate: contributors (and Claude sessions
+# without a Mac) rely on it to validate Swift code.
 name: CI
 
 on:

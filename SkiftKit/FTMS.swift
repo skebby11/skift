@@ -1,7 +1,15 @@
 import Foundation
 
-/// Pure encoding/decoding for the Bluetooth Fitness Machine Service (FTMS).
+/// Pure encoding/decoding for the Bluetooth Fitness Machine Service (FTMS),
+/// the Bluetooth SIG standard implemented by modern smart trainers.
 /// No CoreBluetooth dependency, so everything here is unit-testable.
+///
+/// Payload layouts follow the FTMS 1.0 specification. All multi-byte fields
+/// are little-endian, per Bluetooth convention.
+///
+/// REVIEW: field layouts are spec-correct, but real trainers differ in WHICH
+/// optional fields they include — verify against the Van Rysel D500's actual
+/// notifications (log a few raw payloads on first hardware test).
 public enum FTMS {
 
     // MARK: - Assigned numbers (16-bit UUIDs as hex strings)
@@ -118,6 +126,10 @@ public enum FTMS {
     ///   - windSpeedMS: headwind positive, tailwind negative (resolution 0.001 m/s)
     ///   - crr: rolling resistance coefficient (resolution 0.0001)
     ///   - windResistanceKgM: 0.5·ρ·CdA in kg/m (resolution 0.01)
+    ///
+    /// REVIEW: crr/windResistance defaults mirror the physics engine's road
+    /// defaults; if `RiderProfile` becomes user-configurable end to end,
+    /// thread those values through here too so the trainer and the sim agree.
     public static func setIndoorBikeSimulation(
         gradePercent: Double,
         windSpeedMS: Double = 0,

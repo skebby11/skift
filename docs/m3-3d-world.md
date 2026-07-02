@@ -34,3 +34,18 @@ camera), not beauty. Art passes replace pieces incrementally later.
 Authored island layout (curves instead of the circle), real terrain with
 coastline, avatar model with pedaling animation, camera smoothing/variety,
 scenery props, skybox. Each lands as its own PR on top of this pipeline.
+
+## Slice 2 (same milestone, second PR)
+
+- `TrackLayout` circle replaced by a hand-authored closed loop smoothed with
+  a Catmull-Rom spline, arc-length parameterized and scaled so path length ==
+  route length. Control points are a blind first draft — reshape on screen.
+- World: sand/grass/road concentric ribbons, deterministic low-poly trees
+  along the road (sense of speed), same water + sun.
+- Avatar upgraded from a box to a primitive bike + rider (wheels, frame,
+  leaning torso, head). Pitches with the slope via the layout tangent.
+- Chase camera gets exponential smoothing (factor 0.25 per 10 Hz tick).
+
+Still placeholder art. Remaining for M3 proper: real coastline/terrain mesh,
+avatar model with pedaling animation, skybox, camera variety — all gated on
+seeing the current state on a real screen.

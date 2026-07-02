@@ -61,6 +61,12 @@ extension Route {
     /// Placeholder elevation profile of the planned v1 map (Plan.md §6, M3):
     /// an 8.2 km island loop — flat start, rolling section, ~1.8 km climb at
     /// ~5% up to 110 m, descent, rolling return to the start elevation.
+    ///
+    /// REVIEW: gradient is constant within each segment, so the trainer's
+    /// resistance changes in steps at segment boundaries. If that feels
+    /// abrupt on hardware, either add more points or smooth the gradient
+    /// (e.g. Catmull-Rom on elevation) — the 3D world already smooths
+    /// visually via TrackLayout.
     public static let island = Route(name: "Skift Island", points: [
         RoutePoint(distanceMeters: 0, elevationMeters: 10),
         RoutePoint(distanceMeters: 800, elevationMeters: 12),

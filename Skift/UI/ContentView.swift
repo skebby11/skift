@@ -142,6 +142,9 @@ struct ContentView: View {
 
     // MARK: - Slope control
 
+    /// Manual slope slider from the M1 spike. Kept as a debug/demo tool when
+    /// not riding (during a ride the engine drives the trainer instead).
+    /// REVIEW: hide behind a "debug" toggle once the app has real settings.
     private var slopeSection: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack(alignment: .firstTextBaseline) {
