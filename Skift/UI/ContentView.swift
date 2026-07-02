@@ -38,6 +38,14 @@ struct ContentView: View {
         }
         .padding(24)
         .frame(minWidth: 560, minHeight: 560)
+        // The sheet must live on a view that stays in the hierarchy: when the
+        // ride ends, rideSection disappears, so a sheet attached there would
+        // never present.
+        .sheet(isPresented: $showSummary) {
+            RideSummaryView(recorder: engine.recorder) {
+                showSummary = false
+            }
+        }
     }
 
     // MARK: - Ride
@@ -61,11 +69,6 @@ struct ContentView: View {
                 engine.stop()
                 trainer.setGrade(percent: 0) // release the resistance
                 showSummary = true
-            }
-        }
-        .sheet(isPresented: $showSummary) {
-            RideSummaryView(recorder: engine.recorder) {
-                showSummary = false
             }
         }
     }
