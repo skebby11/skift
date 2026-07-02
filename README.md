@@ -6,8 +6,9 @@ live power/cadence/speed, and syncs the route gradient back to the trainer so
 climbs feel like climbs.
 
 **Status: early development.** M1 (BLE spike) and M2 (ride engine: physics,
-route model, automatic slope sync, 2D ride view) are code-complete; hardware
-validation on a real trainer is pending. Next: M3, the 3D world. See
+route model, automatic slope sync) are code-complete; M3 (the 3D world) is in
+progress with a first RealityKit slice (procedural island, road, avatar,
+chase camera). Hardware validation on a real trainer is pending. See
 [`Plan.md`](Plan.md) for the full roadmap and decision log.
 
 ## Requirements

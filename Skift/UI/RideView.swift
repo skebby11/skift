@@ -1,14 +1,19 @@
 import SwiftUI
 import SkiftKit
 
-/// The M2 debug ride experience: live numbers plus the elevation profile with
-/// the rider's position. M3 replaces the profile with the 3D world; the HUD
-/// stays.
+/// The ride screen: 3D world, HUD numbers, and the elevation profile with
+/// the rider's position.
 struct RideView: View {
     @ObservedObject var engine: RideEngine
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
+            RideSceneView(
+                layout: TrackLayout(route: engine.route),
+                distanceMeters: engine.distanceMeters
+            )
+            .frame(minHeight: 300)
+            .clipShape(RoundedRectangle(cornerRadius: 8))
             Grid(alignment: .leading, horizontalSpacing: 32, verticalSpacing: 8) {
                 GridRow {
                     metric("Speed", String(format: "%.1f", engine.speedKmh), unit: "km/h")
