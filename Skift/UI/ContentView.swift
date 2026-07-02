@@ -5,6 +5,15 @@ struct ContentView: View {
     @StateObject private var trainer = TrainerManager()
     @StateObject private var engine = RideEngine(route: .island)
     @State private var grade = 0.0
+    @State private var showSummary = false
+
+    // Rider settings (editable in the Settings window, applied at ride start).
+    @AppStorage(RiderSettings.riderKgKey)
+    private var riderKg = RiderSettings.defaultRiderKg
+    @AppStorage(RiderSettings.bikeKgKey)
+    private var bikeKg = RiderSettings.defaultBikeKg
+    @AppStorage(RiderSettings.trainerDifficultyKey)
+    private var trainerDifficulty = RiderSettings.defaultTrainerDifficulty
 
     var body: some View {
         VStack(alignment: .leading, spacing: 20) {
@@ -29,15 +38,25 @@ struct ContentView: View {
         }
         .padding(24)
         .frame(minWidth: 560, minHeight: 560)
+        // The sheet must live on a view that stays in the hierarchy: when the
+        // ride ends, rideSection disappears, so a sheet attached there would
+        // never present.
+        .sheet(isPresented: $showSummary) {
+            RideSummaryView(recorder: engine.recorder) {
+                showSummary = false
+            }
+        }
     }
 
     // MARK: - Ride
 
     private var startRideButton: some View {
         Button("Start ride on \(engine.route.name)", systemImage: "flag.checkered") {
+            engine.trainerDifficulty = trainerDifficulty
             engine.start(
-                powerSource: { [weak trainer] in Double(trainer?.liveData.powerWatts ?? 0) },
-                control: trainer
+                dataSource: { [weak trainer] in trainer?.liveData ?? FTMS.IndoorBikeData() },
+                control: trainer,
+                profile: RiderProfile(riderKg: riderKg, bikeKg: bikeKg)
             )
         }
         .disabled(!trainer.hasControl)
@@ -48,7 +67,8 @@ struct ContentView: View {
             RideView(engine: engine)
             Button("End ride") {
                 engine.stop()
-                trainer.setGrade(percent: 0)
+                trainer.setGrade(percent: 0) // release the resistance
+                showSummary = true
             }
         }
     }

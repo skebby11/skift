@@ -8,8 +8,10 @@ struct RideView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
+            // The layout comes from the engine: building a TrackLayout means
+            // sampling the whole spline, far too heavy for a per-frame call.
             RideSceneView(
-                layout: TrackLayout(route: engine.route),
+                layout: engine.layout,
                 distanceMeters: engine.distanceMeters
             )
             .frame(minHeight: 300)

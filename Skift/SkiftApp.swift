@@ -6,5 +6,9 @@ struct SkiftApp: App {
         WindowGroup {
             ContentView()
         }
+        // Standard macOS Settings window (⌘,): rider weight, trainer difficulty.
+        Settings {
+            SettingsView()
+        }
     }
 }

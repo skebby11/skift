@@ -28,31 +28,62 @@ public final class RideEngine: ObservableObject {
 
     public let route: Route
 
+    /// 3D placement of the route, built once (the spline sampling isn't free,
+    /// so views must not rebuild it per frame).
+    public let layout: TrackLayout
+
+    /// Recording of the current (or last) ride; fed one sample per simulated
+    /// second while riding. Read it after `stop()` for the summary/export.
+    public private(set) var recorder = RideRecorder()
+
     private var physics: PhysicsEngine
-    private var powerSource: () -> Double = { 0 }
+    /// Polled every tick for the trainer's latest data (power drives the
+    /// physics; cadence and heart rate flow into the recorder).
+    private var dataSource: () -> FTMS.IndoorBikeData = { FTMS.IndoorBikeData() }
     private weak var control: TrainerControlling?
     private var timer: Timer?
     private var lastSentGrade: Double?
     private var timeSinceGradeSent: Double = .infinity
+    private var timeSinceSample: Double = 0
+    private var rideClock: Double = 0
 
     private static let tickSeconds = 0.1
     private static let gradeSendThresholdPercent = 0.1
     private static let gradeSendMinIntervalSeconds = 1.0
+    private static let sampleIntervalSeconds = 1.0
 
     public init(route: Route, profile: RiderProfile = RiderProfile()) {
         self.route = route
+        self.layout = TrackLayout(route: route)
         self.physics = PhysicsEngine(profile: profile)
         self.gradientPercent = route.gradient(atMeters: 0)
         self.elevationMeters = route.elevation(atMeters: 0)
     }
 
-    /// Starts the 10 Hz loop. `powerSource` is polled every tick (return the
-    /// latest trainer power); `control` receives the scaled gradient.
-    public func start(powerSource: @escaping () -> Double, control: TrainerControlling?) {
-        self.powerSource = powerSource
+    /// Starts the 10 Hz loop. `dataSource` is polled every tick for the
+    /// trainer's latest data; `control` receives the scaled gradient;
+    /// `profile` (when given) applies the rider's settings to the physics.
+    public func start(
+        dataSource: @escaping () -> FTMS.IndoorBikeData,
+        control: TrainerControlling?,
+        profile: RiderProfile? = nil
+    ) {
+        self.dataSource = dataSource
         self.control = control
+        // Always rebuild the physics: a fresh ride starts from a standstill,
+        // not at whatever speed the previous ride ended with.
+        physics = PhysicsEngine(profile: profile ?? physics.profile)
         lastSentGrade = nil
         timeSinceGradeSent = .infinity
+        timeSinceSample = 0
+        rideClock = 0
+        totalDistanceMeters = 0
+        distanceMeters = 0
+        speedKmh = 0
+        gradientPercent = route.gradient(atMeters: 0)
+        elevationMeters = route.elevation(atMeters: 0)
+        recorder = RideRecorder()
+        recorder.begin()
         isRiding = true
         timer?.invalidate()
         timer = Timer.scheduledTimer(withTimeInterval: Self.tickSeconds, repeats: true) { [weak self] _ in
@@ -68,18 +99,44 @@ public final class RideEngine: ObservableObject {
 
     /// One simulation tick. Public so tests can drive the engine without the timer.
     public func step(dt: Double) {
-        let speedMS = physics.step(powerWatts: powerSource(), gradePercent: gradientPercent, dt: dt)
+        let data = dataSource()
+        let speedMS = physics.step(
+            powerWatts: Double(data.powerWatts ?? 0),
+            gradePercent: gradientPercent,
+            dt: dt
+        )
         speedKmh = speedMS * 3.6
         totalDistanceMeters += speedMS * dt
         distanceMeters = totalDistanceMeters.truncatingRemainder(dividingBy: route.lengthMeters)
         gradientPercent = route.gradient(atMeters: distanceMeters)
         elevationMeters = route.elevation(atMeters: distanceMeters)
+        rideClock += dt
         syncGradeToTrainer(dt: dt)
+        recordSampleIfDue(dt: dt, data: data)
+    }
+
+    /// Appends one sample per simulated second to the recorder.
+    /// The epsilon absorbs float accumulation (ten 0.1 ticks sum to
+    /// 0.9999999…); carrying the remainder keeps the cadence drift-free.
+    private func recordSampleIfDue(dt: Double, data: FTMS.IndoorBikeData) {
+        timeSinceSample += dt
+        guard timeSinceSample >= Self.sampleIntervalSeconds - 1e-9 else { return }
+        timeSinceSample -= Self.sampleIntervalSeconds
+        recorder.append(RideSample(
+            timeOffset: rideClock,
+            powerWatts: data.powerWatts,
+            cadenceRpm: data.cadenceRpm,
+            heartRateBpm: data.heartRateBpm,
+            speedKmh: speedKmh,
+            distanceMeters: totalDistanceMeters,
+            elevationMeters: elevationMeters
+        ))
     }
 
     private func syncGradeToTrainer(dt: Double) {
         timeSinceGradeSent += dt
-        guard timeSinceGradeSent >= Self.gradeSendMinIntervalSeconds else { return }
+        // Same float-accumulation epsilon as the sampler.
+        guard timeSinceGradeSent >= Self.gradeSendMinIntervalSeconds - 1e-9 else { return }
 
         let target = gradientPercent * trainerDifficulty
         let changedEnough = lastSentGrade.map {

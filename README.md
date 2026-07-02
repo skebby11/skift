@@ -5,11 +5,11 @@ pedaling. Skift connects to your smart trainer over Bluetooth (FTMS), reads
 live power/cadence/speed, and syncs the route gradient back to the trainer so
 climbs feel like climbs.
 
-**Status: early development.** M1 (BLE spike) and M2 (ride engine: physics,
-route model, automatic slope sync) are code-complete; M3 (the 3D world) is in
-progress with a first RealityKit slice (procedural island, road, avatar,
-chase camera). Hardware validation on a real trainer is pending. See
-[`Plan.md`](Plan.md) for the full roadmap and decision log.
+**Status: early development — full v1 skeleton in place.** M1 (BLE), M2 (ride
+engine), M3 (3D world, placeholder art) and M4 (ride recording, summary, TCX
+export for Strava, settings) are code-complete. Hardware and visual validation
+on a real trainer/screen is pending; `REVIEW:` markers in the code flag
+everything to verify. See [`Plan.md`](Plan.md) for the roadmap and decision log.
 
 ## Requirements
 
