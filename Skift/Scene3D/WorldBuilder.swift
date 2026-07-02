@@ -64,14 +64,14 @@ enum WorldBuilder {
         let riderMaterial = SimpleMaterial(color: .systemOrange, isMetallic: false)
         let wheelMaterial = SimpleMaterial(color: NSColor(white: 0.15, alpha: 1), isMetallic: false)
 
-        // Wheels: cylinders are generated with their axis on Y, so rotate
-        // them 90° around Z to make the axis horizontal (side-to-side).
+        // Wheels: spheres squashed on X into discs. (generateCylinder is
+        // macOS 15+ only and the deployment target is 14, so no cylinders.)
         for zOffset in [Float(-0.55), Float(0.55)] {
             let wheel = ModelEntity(
-                mesh: .generateCylinder(height: 0.06, radius: 0.34),
+                mesh: .generateSphere(radius: 0.34),
                 materials: [wheelMaterial]
             )
-            wheel.orientation = simd_quatf(angle: .pi / 2, axis: SIMD3(0, 0, 1))
+            wheel.scale = SIMD3(0.12, 1, 1)
             wheel.position = SIMD3(0, 0.34, zOffset)
             avatar.addChild(wheel)
         }
@@ -125,19 +125,22 @@ enum WorldBuilder {
             let tangent = layout.tangent(atMeters: distance)
             let sideDir = simd_normalize(simd_cross(SIMD3<Float>(0, 1, 0), tangent))
 
+            // Box trunk + squashed-sphere crown: generateCylinder/generateCone
+            // are macOS 15+ only, and the deployment target is macOS 14.
             let tree = Entity()
             let trunk = ModelEntity(
-                mesh: .generateCylinder(height: 2.2, radius: 0.18),
+                mesh: .generateBox(size: SIMD3<Float>(0.35, 2.2, 0.35)),
                 materials: [trunkMaterial]
             )
             trunk.position.y = 1.1
             tree.addChild(trunk)
 
             let crown = ModelEntity(
-                mesh: .generateCone(height: 3.4, radius: 1.4),
+                mesh: .generateSphere(radius: 1.5),
                 materials: [crownMaterial]
             )
-            crown.position.y = 3.6
+            crown.scale = SIMD3(1, 1.3, 1)
+            crown.position.y = 3.3
             tree.addChild(crown)
 
             // Drop the tree on the grass ribbon, slightly below road level.
