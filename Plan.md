@@ -190,7 +190,13 @@ actual multiplayer (hardest), Windows/Linux (if stack B), iOS/tvOS (if stack A).
 
 ## 8. Open decisions
 
-None — all v1 decisions are resolved (see Decision log). Next step: M0.
+None — all v1 decisions are resolved (see Decision log).
+
+**Progress (2026-07-02):** M0–M4 are code-complete on `main` (BLE spike, ride
+engine, 3D world with placeholder art, recording/summary/TCX export/settings).
+Everything is CI-green but none of it has touched real hardware or a real
+screen yet — the next step is the validation session (search the codebase for
+`REVIEW:` markers), then the M3 art pass and M5 packaging.
 
 ## 9. Decision log
 
@@ -203,3 +209,4 @@ None — all v1 decisions are resolved (see Decision log). Next step: M0.
 | 2026-07-02 | License: Apache-2.0 | Permissive like MIT plus explicit patent grant |
 | 2026-07-02 | Test hardware: Van Rysel D500 (Decathlon) | Owned by the team; supports BLE FTMS natively (plus ANT+ and Zwift Cog/Click), 15% max grade simulation — ideal dev target |
 | 2026-07-02 | Stack: Swift + SwiftUI + RealityKit + Core Bluetooth | iPhone/iPad/Apple TV reach and first-class App Store path judged worth the learning curve vs. the web stack (§5) |
+| 2026-07-02 | Ride export: TCX first, FIT later | Plain XML, no binary SDK, Strava imports it; FIT stays on the backlog |

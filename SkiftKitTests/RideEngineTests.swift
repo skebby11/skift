@@ -13,7 +13,10 @@ final class RideEngineTests: XCTestCase {
     private func makeEngine(route: Route = .island) -> (RideEngine, FakeTrainer) {
         let engine = RideEngine(route: route)
         let trainer = FakeTrainer()
-        engine.start(powerSource: { 200 }, control: trainer)
+        engine.start(
+            dataSource: { FTMS.IndoorBikeData(cadenceRpm: 90, powerWatts: 200, heartRateBpm: 150) },
+            control: trainer
+        )
         engine.stop() // kill the timer; tests drive step(dt:) manually
         return (engine, trainer)
     }
@@ -47,6 +50,18 @@ final class RideEngineTests: XCTestCase {
             engine.step(dt: 0.1)
         }
         XCTAssertEqual(trainer.receivedGrades.count, 1)
+    }
+
+    func testRecordsOneSamplePerSimulatedSecond() {
+        let (engine, _) = makeEngine()
+        for _ in 0..<50 { // 5 simulated seconds
+            engine.step(dt: 0.1)
+        }
+        XCTAssertEqual(engine.recorder.samples.count, 5)
+        let sample = engine.recorder.samples[0]
+        XCTAssertEqual(sample.powerWatts, 200)
+        XCTAssertEqual(sample.cadenceRpm, 90)
+        XCTAssertEqual(sample.heartRateBpm, 150)
     }
 
     func testLapWrapsDistanceButKeepsTotal() {
