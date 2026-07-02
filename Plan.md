@@ -188,15 +188,49 @@ actual multiplayer (hardest), Windows/Linux (if stack B), iOS/tvOS (if stack A).
 | Scope creep toward Zwift parity | Non-goals list in CLAUDE.md; v1 = solo riding only |
 | macOS BLE permissions/sandbox | Known path: `NSBluetoothAlwaysUsageDescription`, works in App Store sandbox |
 
-## 8. Open decisions
+## 8. Status & to-do
 
-None — all v1 decisions are resolved (see Decision log).
+All v1 decisions are resolved (see Decision log). **M0–M4 are code-complete
+and merged on `main`** (PRs #1–#6, CI-green, 39 unit tests): BLE spike, ride
+engine, 3D world with placeholder art, recording/summary/TCX export/settings.
+Nothing has touched real hardware or a real screen yet.
 
-**Progress (2026-07-02):** M0–M4 are code-complete on `main` (BLE spike, ride
-engine, 3D world with placeholder art, recording/summary/TCX export/settings).
-Everything is CI-green but none of it has touched real hardware or a real
-screen yet — the next step is the validation session (search the codebase for
-`REVIEW:` markers), then the M3 art pass and M5 packaging.
+*Keep this list current: check items off (or strike them) as they land, and
+add new ones as they emerge.*
+
+### To-do — next up
+
+- [ ] **Hardware validation session** (Sebastiano, at the Mac with the D500;
+  the `REVIEW:` markers in the code are the detailed checklist):
+  - [ ] `xcodegen generate`, build, run; grant Bluetooth permission
+  - [ ] Scan → connect to the D500; verify live power/cadence/speed
+  - [ ] Manual slope slider: pedals get physically harder/easier
+  - [ ] Log a few raw Indoor Bike Data payloads (which fields does the D500 send?)
+  - [ ] Full ride loop: does resistance follow the terrain? Speeds believable
+        vs. Zwift on the same watts?
+  - [ ] 3D scene renders (island, road, trees, avatar, chase camera) —
+        take a screenshot for the art-pass discussion
+  - [ ] Post-ride summary appears; export TCX; upload to Strava succeeds
+- [ ] **Fix whatever the validation session finds** (expect BLE quirks and
+  ugly 3D — that's the point of the session)
+- [ ] **M3 art pass** (needs the screenshot + direction): reshape track
+  control points, real coastline/terrain instead of ribbons, avatar model
+  with pedaling animation, skybox, camera polish
+- [ ] **M5 — ship v0.1**: app icon, code signing + notarization, GitHub
+  release with .dmg, README screenshots/demo video, supported-trainers list
+
+### To-do — backlog (v1.x / v2, roughly ordered)
+
+- [ ] BLE auto-reconnect after dropped link
+- [ ] Trainer test matrix beyond the D500 (Wahoo, Tacx, Elite via community)
+- [ ] FIT export (Strava-native format; TCX ships first)
+- [ ] Ride history persistence in-app
+- [ ] Smoothed route gradients (no resistance steps at segment boundaries)
+- [ ] Ghost rider (race your previous recording — cheap "multiplayer")
+- [ ] ERG mode / structured workouts
+- [ ] Heart-rate strap via BLE HRS (separate sensor pairing)
+- [ ] iOS/iPadOS/tvOS targets
+- [ ] Real multiplayer (server, presence, drafting) — the big one
 
 ## 9. Decision log
 
