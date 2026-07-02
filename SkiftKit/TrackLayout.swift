@@ -114,6 +114,8 @@ public struct TrackLayout {
     }
 
     /// Standard Catmull-Rom interpolation between p1 and p2 (t in 0...1).
+    /// Kept as many small statements: one big vector expression sends the
+    /// Swift type checker into "unable to type-check in reasonable time".
     private static func catmullRom(
         _ p0: SIMD2<Double>, _ p1: SIMD2<Double>,
         _ p2: SIMD2<Double>, _ p3: SIMD2<Double>,
@@ -121,10 +123,22 @@ public struct TrackLayout {
     ) -> SIMD2<Double> {
         let t2 = t * t
         let t3 = t2 * t
-        let a = 2 * p1
-        let b = (p2 - p0) * t
-        let c = (2 * p0 - 5 * p1 + 4 * p2 - p3) * t2
-        let d = (3 * p1 - p0 - 3 * p2 + p3) * t3
-        return 0.5 * (a + b + c + d)
+
+        var result: SIMD2<Double> = p1 * 2.0
+        result += (p2 - p0) * t
+
+        var c: SIMD2<Double> = p0 * 2.0
+        c -= p1 * 5.0
+        c += p2 * 4.0
+        c -= p3
+        result += c * t2
+
+        var d: SIMD2<Double> = p1 * 3.0
+        d -= p0
+        d -= p2 * 3.0
+        d += p3
+        result += d * t3
+
+        return result * 0.5
     }
 }
