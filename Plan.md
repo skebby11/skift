@@ -110,27 +110,39 @@ choice below is where that trade-off is actually decided.
 
 ## 5. Tech stack options — DECISION NEEDED
 
-| | A. Native Swift | B. Godot 4 | C. Web app |
+Context that changed the recommendation: the founding developer's background is
+**100% web development** (no native/desktop experience), and the must-have is a
+real Zwift-like 3D map — not a dashboard app like Auuki.
+
+| | A. Native Swift | B. Godot 4 | C. Web (TS + Three.js) |
 |---|---|---|---|
-| UI/3D | SwiftUI + **RealityKit** (or SceneKit) | Godot renderer (GDScript/C#) | Three.js/Babylon |
-| BLE | Core Bluetooth (first-class) | No built-in BLE → native GDExtension plugin or Swift sidecar process (the main risk) | Web Bluetooth (Chrome/Edge only, **no Safari**) |
-| Platforms | macOS → iOS/tvOS | macOS/Win/Linux (+mobile) | Any Chromium desktop |
-| App Store fit | ★★★ best | ★★ possible, more friction | ★ PWA only |
-| OSS contributor appeal | Apple devs only | ★★★ (engine itself MIT/OSS) | ★★★ web devs |
-| MVP speed | ★★★ | ★★ (BLE plugin work) | ★★★ (Auuki proves it) |
-| 3D world quality ceiling | High (Metal) | High | Medium |
+| UI/3D | SwiftUI + **RealityKit** (or SceneKit) | Godot renderer (GDScript/C#) | **Three.js** (WebGL/WebGPU) |
+| BLE | Core Bluetooth (first-class) | No built-in BLE → native GDExtension plugin or Swift sidecar process (the main risk) | Web Bluetooth (Chrome/Edge; **no Safari**) — Auuki proves FTMS works |
+| Platforms | macOS → iOS/tvOS | macOS/Win/Linux (+mobile) | Any Chromium desktop; **Electron wrapper → installable Mac/Win/Linux app** |
+| App Store fit | ★★★ best | ★★ possible, more friction | ★★ via Electron (accepted in Mac App Store); no iOS path |
+| OSS contributor appeal | Apple devs only | ★★★ (engine itself MIT/OSS) | ★★★ web devs (largest pool) |
+| MVP speed *for this team* | ★ (learn Swift + Xcode + RealityKit first) | ★★ (learn engine + BLE plugin work) | ★★★ (existing skills, hot reload, npm ecosystem) |
+| 3D world quality ceiling | High (Metal) | High | Medium-high — **fully sufficient for a low-poly world**; Three.js runs far heavier games than this |
+| Learning curve for a web dev | Steep (new language, new toolchain, compiled builds) | Medium | ~None |
 
-- **A (Swift native)** — best fit for "Mac first, App Store later". Weakest
-  cross-platform story.
-- **B (Godot)** — best fit for "open-source project others join"; one codebase
-  for Mac+Win+Linux; must solve BLE via a plugin (solvable, but it's the
-  hairiest part).
-- **C (Web)** — fastest to a working MVP, zero install; but no Safari, no real
-  App Store path, lower 3D ceiling.
+Notes on the common web-stack worries:
+- *"Can the web really do the Zwift map?"* Yes for the chosen art direction:
+  a low-poly island with one route is comfortably within Three.js territory.
+  Auuki has no 3D because it never tried, not because the browser can't.
+- *Compile cycle:* native Swift apps do compile on every change (incremental
+  builds are seconds in Xcode, not minutes) — the real cost is learning a new
+  language/toolchain, not build time. Web dev keeps instant hot-reload.
+- *iPhone/iPad:* only stack A gives a real iOS/iPadOS/tvOS path (same
+  SwiftUI/RealityKit codebase, multiple targets). Web Bluetooth does not work
+  in any iOS browser, and Electron doesn't target iOS. **Choosing C means
+  iOS/App Store-on-iPhone is off the table unless the app is later ported.**
 
-**My recommendation: A (Swift + RealityKit)** given the stated priorities
-(Mac users, App Store). Choose B instead if cross-platform reach and OSS
-contributions matter more than App Store.
+**Recommendation (updated): C — TypeScript + Three.js + Web Bluetooth,
+wrapped in Electron when we want an installable Mac app / Mac App Store
+distribution.** Rationale: it's the only option where the team's existing
+skills apply on day one, MVP speed is the top project risk, and the 3D
+ceiling is a non-issue for a low-poly world. Choose A only if native
+iPhone/iPad/Apple TV distribution is a hard v1–v2 requirement.
 
 ## 6. Roadmap
 
@@ -176,13 +188,9 @@ actual multiplayer (hardest), Windows/Linux (if stack B), iOS/tvOS (if stack A).
 
 ## 8. Open decisions (waiting on Sebastiano)
 
-1. **Tech stack**: A. Swift/RealityKit · B. Godot 4 · C. Web — see §5.
-2. **Map type**: fictional low-poly island (recommended) vs. real-world route
-   from GPX with generated terrain.
-3. **License**: MIT (recommended: simplest, matches Godot ecosystem) vs.
-   GPLv3 (forces forks to stay open) vs. Apache-2.0.
-4. **Test hardware**: which smart trainer(s) do we own for development?
-   (brand/model determines FTMS quirks to handle first).
+1. **Tech stack**: A. Swift/RealityKit · B. Godot 4 · C. Web (recommended) —
+   see §5, updated after clarifying team skills (web-only) and the iOS
+   trade-off. Confirmation pending.
 
 ## 9. Decision log
 
@@ -191,3 +199,6 @@ actual multiplayer (hardest), Windows/Linux (if stack B), iOS/tvOS (if stack A).
 | 2026-07-02 | macOS first | Core Bluetooth quality, user base, App Store path (§4) |
 | 2026-07-02 | Bluetooth only, no ANT+ | ANT+ needs a USB dongle & proprietary stack; FTMS covers modern trainers |
 | 2026-07-02 | v1 is single-player, 1 map | Multiplayer & content are Zwift's real moat; not needed to "feel real" |
+| 2026-07-02 | Map: fictional low-poly island (~8–10 km loop) | Achievable solo, ages well aesthetically; real-GPX terrain deferred |
+| 2026-07-02 | License: Apache-2.0 | Permissive like MIT plus explicit patent grant |
+| 2026-07-02 | Test hardware: Van Rysel D500 (Decathlon) | Owned by the team; supports BLE FTMS natively (plus ANT+ and Zwift Cog/Click), 15% max grade simulation — ideal dev target |
