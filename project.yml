@@ -1,0 +1,52 @@
+name: Skift
+options:
+  bundleIdPrefix: org.skift
+  deploymentTarget:
+    macOS: "14.0"
+  createIntermediateGroups: true
+
+settings:
+  base:
+    SWIFT_VERSION: "5.9"
+
+targets:
+  Skift:
+    type: application
+    platform: macOS
+    sources: [Skift]
+    dependencies:
+      - target: SkiftKit
+        embed: true
+    info:
+      path: Skift/Info.plist
+      properties:
+        CFBundleShortVersionString: "0.1.0"
+        CFBundleVersion: "1"
+        LSApplicationCategoryType: public.app-category.healthcare-fitness
+        NSBluetoothAlwaysUsageDescription: Skift connects to your smart trainer over Bluetooth to read ride data and control resistance.
+    entitlements:
+      path: Skift/Skift.entitlements
+      properties:
+        com.apple.security.app-sandbox: true
+        com.apple.security.device.bluetooth: true
+
+  SkiftKit:
+    type: framework
+    platform: macOS
+    sources: [SkiftKit]
+
+  SkiftKitTests:
+    type: bundle.unit-test
+    platform: macOS
+    sources: [SkiftKitTests]
+    dependencies:
+      - target: SkiftKit
+
+schemes:
+  Skift:
+    build:
+      targets:
+        Skift: all
+    test:
+      targets:
+        - SkiftKitTests
