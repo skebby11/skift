@@ -3,6 +3,7 @@ import SkiftKit
 
 struct ContentView: View {
     @StateObject private var trainer = TrainerManager()
+    @StateObject private var engine = RideEngine(route: .island)
     @State private var grade = 0.0
 
     var body: some View {
@@ -12,7 +13,12 @@ struct ContentView: View {
                 Divider()
                 metricsSection
                 Divider()
-                slopeSection
+                if engine.isRiding {
+                    rideSection
+                } else {
+                    startRideButton
+                    slopeSection
+                }
             }
             if let error = trainer.lastError {
                 Text(error)
@@ -22,7 +28,29 @@ struct ContentView: View {
             Spacer(minLength: 0)
         }
         .padding(24)
-        .frame(minWidth: 440, minHeight: 420)
+        .frame(minWidth: 560, minHeight: 560)
+    }
+
+    // MARK: - Ride
+
+    private var startRideButton: some View {
+        Button("Start ride on \(engine.route.name)", systemImage: "flag.checkered") {
+            engine.start(
+                powerSource: { [weak trainer] in Double(trainer?.liveData.powerWatts ?? 0) },
+                control: trainer
+            )
+        }
+        .disabled(!trainer.hasControl)
+    }
+
+    private var rideSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            RideView(engine: engine)
+            Button("End ride") {
+                engine.stop()
+                trainer.setGrade(percent: 0)
+            }
+        }
     }
 
     // MARK: - Connection
