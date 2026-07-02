@@ -20,6 +20,13 @@ public final class RideEngine: ObservableObject {
     @Published public private(set) var gradientPercent: Double
     @Published public private(set) var elevationMeters: Double
 
+    // Live trainer data, republished per tick so the ride HUD binds to the
+    // engine alone. Watts is the headline number of the whole app: training
+    // is power-based and the D500 measures it directly.
+    @Published public private(set) var powerWatts: Int = 0
+    @Published public private(set) var cadenceRpm: Double?
+    @Published public private(set) var heartRateBpm: Int?
+
     /// Fraction of the real gradient sent to the trainer (Zwift's "trainer
     /// difficulty"); physics always uses the full gradient, so this changes
     /// how climbs FEEL, not how fast the avatar goes.
@@ -110,6 +117,9 @@ public final class RideEngine: ObservableObject {
         distanceMeters = totalDistanceMeters.truncatingRemainder(dividingBy: route.lengthMeters)
         gradientPercent = route.gradient(atMeters: distanceMeters)
         elevationMeters = route.elevation(atMeters: distanceMeters)
+        powerWatts = data.powerWatts ?? 0
+        cadenceRpm = data.cadenceRpm
+        heartRateBpm = data.heartRateBpm
         rideClock += dt
         syncGradeToTrainer(dt: dt)
         recordSampleIfDue(dt: dt, data: data)

@@ -222,6 +222,10 @@ add new ones as they emerge.*
 ### To-do — backlog (v1.x / v2, roughly ordered)
 
 - [ ] BLE auto-reconnect after dropped link
+- [ ] Italian localization (UI ships in English as the OSS lingua franca;
+      add a String Catalog with `it` once strings stabilize)
+- [ ] App icon (needed for M5; must be original or CC0 — stock-icon licenses
+      like Flaticon/Icons8 require attribution and clash with Apache-2.0 redistribution)
 - [ ] Trainer test matrix beyond the D500 (Wahoo, Tacx, Elite via community)
 - [ ] FIT export (Strava-native format; TCX ships first)
 - [ ] Ride history persistence in-app

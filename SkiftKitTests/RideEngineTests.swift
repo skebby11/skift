@@ -64,6 +64,14 @@ final class RideEngineTests: XCTestCase {
         XCTAssertEqual(sample.heartRateBpm, 150)
     }
 
+    func testRepublishesLiveTrainerMetricsForTheHUD() {
+        let (engine, _) = makeEngine()
+        engine.step(dt: 0.1)
+        XCTAssertEqual(engine.powerWatts, 200)
+        XCTAssertEqual(engine.cadenceRpm, 90)
+        XCTAssertEqual(engine.heartRateBpm, 150)
+    }
+
     func testLapWrapsDistanceButKeepsTotal() {
         let shortLoop = Route(name: "Short", points: [
             RoutePoint(distanceMeters: 0, elevationMeters: 0),
