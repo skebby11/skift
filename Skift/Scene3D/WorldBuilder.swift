@@ -240,8 +240,23 @@ enum WorldBuilder {
     /// along Z.
     /// REVIEW: replace with a modelled/animated avatar (pedaling legs,
     /// spinning wheels) in the M3 art pass.
-    static func makeAvatar() -> Entity {
+    /// The avatar plus references to its animated parts. `RideSceneView`
+    /// spins the wheels with speed and orbits the pedals with cadence in its
+    /// per-frame update.
+    struct AvatarRig {
+        let root: Entity
+        let wheels: [ModelEntity]
+        let pedals: [ModelEntity]
+        /// Crank axle in avatar-local coordinates; pedals orbit this point.
+        static let crankCenter = SIMD3<Float>(0, 0.45, 0.05)
+        static let crankRadius: Float = 0.17
+        static let wheelRadius: Float = 0.34
+    }
+
+    static func makeAvatar() -> AvatarRig {
         let avatar = Entity()
+        var wheels: [ModelEntity] = []
+        var pedals: [ModelEntity] = []
 
         let frameMaterial = SimpleMaterial(color: .systemRed, isMetallic: false)
         let riderMaterial = SimpleMaterial(color: .systemOrange, isMetallic: false)
@@ -249,14 +264,35 @@ enum WorldBuilder {
 
         // Wheels: spheres squashed on X into discs. (generateCylinder is
         // macOS 15+ only and the deployment target is 14, so no cylinders.)
+        // A white rim marker makes the spin visible on flat-shaded geometry.
         for zOffset in [Float(-0.55), Float(0.55)] {
             let wheel = ModelEntity(
-                mesh: .generateSphere(radius: 0.34),
+                mesh: .generateSphere(radius: AvatarRig.wheelRadius),
                 materials: [wheelMaterial]
             )
             wheel.scale = SIMD3(0.12, 1, 1)
-            wheel.position = SIMD3(0, 0.34, zOffset)
+            wheel.position = SIMD3(0, AvatarRig.wheelRadius, zOffset)
+            let marker = ModelEntity(
+                mesh: .generateBox(size: SIMD3<Float>(0.6, 0.07, 0.07)),
+                materials: [SimpleMaterial(color: .white, isMetallic: false)]
+            )
+            marker.position = SIMD3(0, 0.24, 0)
+            wheel.addChild(marker)
             avatar.addChild(wheel)
+            wheels.append(wheel)
+        }
+
+        // Pedals: two boxes orbiting the crank in opposite phase — the
+        // per-frame update sets their position from the cadence angle.
+        let pedalMaterial = SimpleMaterial(color: NSColor(white: 0.1, alpha: 1), isMetallic: false)
+        for lateral in [Float(-0.18), Float(0.18)] {
+            let pedal = ModelEntity(
+                mesh: .generateBox(size: SIMD3<Float>(0.16, 0.07, 0.24)),
+                materials: [pedalMaterial]
+            )
+            pedal.position = AvatarRig.crankCenter + SIMD3(lateral, -AvatarRig.crankRadius, 0)
+            avatar.addChild(pedal)
+            pedals.append(pedal)
         }
 
         // Frame: a slim box between the wheels.
@@ -283,7 +319,7 @@ enum WorldBuilder {
         head.position = SIMD3(0, 1.6, -0.15)
         avatar.addChild(head)
 
-        return avatar
+        return AvatarRig(root: avatar, wheels: wheels, pedals: pedals)
     }
 
     // MARK: - Scenery

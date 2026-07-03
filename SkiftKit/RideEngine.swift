@@ -34,6 +34,13 @@ public final class RideEngine: ObservableObject {
     @Published public private(set) var targetDistanceMeters: Double?
     /// True once the target distance has been reached (never set on free rides).
     @Published public private(set) var isCompleted = false
+    /// Zwift-style auto-pause: no power AND (nearly) no speed. The ride clock
+    /// and the recorder stop so dead time doesn't pollute averages; coasting
+    /// downhill at 0 W keeps the clock running (speed condition).
+    @Published public private(set) var isAutoPaused = false
+
+    /// The rider profile currently driving the physics (exposed for W/kg).
+    public var riderProfile: RiderProfile { physics.profile }
 
     /// Fraction of the real gradient sent to the trainer (Zwift's "trainer
     /// difficulty"); physics always uses the full gradient, so this changes
@@ -104,6 +111,7 @@ public final class RideEngine: ObservableObject {
         elevationMeters = route.elevation(atMeters: 0)
         recorder = RideRecorder()
         recorder.begin()
+        isAutoPaused = false
         isRiding = true
         timer?.invalidate()
         timer = Timer.scheduledTimer(withTimeInterval: Self.tickSeconds, repeats: true) { [weak self] _ in
@@ -133,10 +141,14 @@ public final class RideEngine: ObservableObject {
         powerWatts = data.powerWatts ?? 0
         cadenceRpm = data.cadenceRpm
         heartRateBpm = data.heartRateBpm
-        rideClock += dt
-        elapsedSeconds = rideClock
-        syncGradeToTrainer(dt: dt)
-        recordSampleIfDue(dt: dt, data: data)
+
+        isAutoPaused = powerWatts == 0 && speedMS < 0.1
+        if !isAutoPaused {
+            rideClock += dt
+            elapsedSeconds = rideClock
+            recordSampleIfDue(dt: dt, data: data)
+        }
+        syncGradeToTrainer(dt: dt) // resistance stays correct even while paused
 
         // Auto-complete when the chosen target distance is reached: stop the
         // loop (no further grade commands) and let the UI move to the summary.

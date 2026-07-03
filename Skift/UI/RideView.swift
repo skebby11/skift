@@ -12,7 +12,9 @@ struct RideView: View {
             // sampling the whole spline, far too heavy for a per-frame call.
             RideSceneView(
                 layout: engine.layout,
-                distanceMeters: engine.distanceMeters
+                distanceMeters: engine.distanceMeters,
+                speedKmh: engine.speedKmh,
+                cadenceRpm: engine.cadenceRpm ?? 0
             )
             .frame(minHeight: 300)
             .clipShape(RoundedRectangle(cornerRadius: 8))
@@ -21,6 +23,17 @@ struct RideView: View {
                 MiniMapView(layout: engine.layout, positionMeters: engine.distanceMeters)
                     .frame(width: 130, height: 130)
                     .padding(10)
+            }
+            // Auto-pause badge: the clock is stopped, say so.
+            .overlay(alignment: .top) {
+                if engine.isAutoPaused {
+                    Label("Paused — start pedaling", systemImage: "pause.circle.fill")
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 6)
+                        .background(.black.opacity(0.55), in: Capsule())
+                        .foregroundStyle(.white)
+                        .padding(.top, 12)
+                }
             }
             Grid(alignment: .leading, horizontalSpacing: 28, verticalSpacing: 8) {
                 GridRow {
@@ -33,6 +46,21 @@ struct RideView: View {
                     metric("Gradient", String(format: "%+.1f", engine.gradientPercent), unit: "%")
                     metric("Elevation", String(format: "%.0f", engine.elevationMeters), unit: "m")
                 }
+            }
+
+            // Training context row: power zone (Coggan, from the FTP set in
+            // Settings), W/kg, heart rate when a strap is paired.
+            HStack(spacing: 16) {
+                zoneChip
+                Text(String(format: "%.1f W/kg", Double(engine.powerWatts) / engine.riderProfile.riderKg))
+                    .font(.callout)
+                    .monospacedDigit()
+                if let heartRate = engine.heartRateBpm {
+                    Label("\(heartRate) bpm", systemImage: "heart.fill")
+                        .font(.callout)
+                        .foregroundStyle(.red)
+                }
+                Spacer()
             }
 
             // Finish-line progress, only on target rides (not free rides).
@@ -49,6 +77,32 @@ struct RideView: View {
             }
             ElevationProfileView(route: engine.route, positionMeters: engine.distanceMeters)
                 .frame(height: 140)
+        }
+    }
+
+    // FTP from Settings drives the zone chip.
+    @AppStorage(RiderSettings.ftpKey)
+    private var ftp = RiderSettings.defaultFTP
+
+    /// Colored capsule with the current Coggan zone (Z1 gray … Z6 red).
+    private var zoneChip: some View {
+        let zone = PowerZone.zone(forPower: engine.powerWatts, ftp: ftp)
+        return Text("Z\(zone.rawValue) · \(zone.name)")
+            .font(.callout.bold())
+            .padding(.horizontal, 10)
+            .padding(.vertical, 3)
+            .background(zoneColor(zone).opacity(0.25), in: Capsule())
+            .foregroundStyle(zoneColor(zone))
+    }
+
+    private func zoneColor(_ zone: PowerZone) -> Color {
+        switch zone {
+        case .recovery: return .gray
+        case .endurance: return .blue
+        case .tempo: return .green
+        case .threshold: return .yellow
+        case .vo2max: return .orange
+        case .anaerobic: return .red
         }
     }
 
