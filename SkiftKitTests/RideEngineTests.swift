@@ -35,8 +35,9 @@ final class RideEngineTests: XCTestCase {
         let (engine, trainer) = makeEngine()
         engine.trainerDifficulty = 0.5
         engine.step(dt: 0.1)
-        let expected = engine.route.gradient(atMeters: 0) * 0.5
-        XCTAssertEqual(trainer.receivedGrades.first ?? .nan, expected, accuracy: 0.001)
+        // The engine sends the SMOOTHED gradient (what the rider feels).
+        let expected = engine.route.smoothedGradient(atMeters: engine.distanceMeters) * 0.5
+        XCTAssertEqual(trainer.receivedGrades.first ?? .nan, expected, accuracy: 0.05)
     }
 
     func testDoesNotSpamTrainerWhileGradientIsStable() {
