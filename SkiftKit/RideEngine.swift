@@ -71,7 +71,8 @@ public final class RideEngine: ObservableObject {
         self.route = route
         self.layout = TrackLayout(route: route)
         self.physics = PhysicsEngine(profile: profile)
-        self.gradientPercent = route.gradient(atMeters: 0)
+        // Smoothed gradient everywhere the rider can feel it (see Route).
+        self.gradientPercent = route.smoothedGradient(atMeters: 0)
         self.elevationMeters = route.elevation(atMeters: 0)
     }
 
@@ -99,7 +100,7 @@ public final class RideEngine: ObservableObject {
         totalDistanceMeters = 0
         distanceMeters = 0
         speedKmh = 0
-        gradientPercent = route.gradient(atMeters: 0)
+        gradientPercent = route.smoothedGradient(atMeters: 0)
         elevationMeters = route.elevation(atMeters: 0)
         recorder = RideRecorder()
         recorder.begin()
@@ -127,7 +128,7 @@ public final class RideEngine: ObservableObject {
         speedKmh = speedMS * 3.6
         totalDistanceMeters += speedMS * dt
         distanceMeters = totalDistanceMeters.truncatingRemainder(dividingBy: route.lengthMeters)
-        gradientPercent = route.gradient(atMeters: distanceMeters)
+        gradientPercent = route.smoothedGradient(atMeters: distanceMeters)
         elevationMeters = route.elevation(atMeters: distanceMeters)
         powerWatts = data.powerWatts ?? 0
         cadenceRpm = data.cadenceRpm

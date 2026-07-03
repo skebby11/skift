@@ -29,7 +29,24 @@ final class RouteTests: XCTestCase {
         XCTAssertEqual(ramp.elevation(atMeters: -50), ramp.elevation(atMeters: 350), accuracy: 0.001)
     }
 
-    func testIslandRouteIsCoherent() {
+    func testSmoothedGradientMatchesRawSlopeMidSegment() {
+        // In the middle of a segment much longer than the window the central
+        // difference must recover the raw slope.
+        XCTAssertEqual(ramp.smoothedGradient(atMeters: 50), 10, accuracy: 0.001)
+        XCTAssertEqual(ramp.smoothedGradient(atMeters: 300), -5, accuracy: 0.001)
+    }
+
+    func testSmoothedGradientHasNoSteps() {
+        // Raw gradient jumps 10 → 0 at 100 m; smoothed must ramp through it:
+        // no two points 1 m apart may differ by more than ~1 % of gradient.
+        let island = Route.island
+        var previous = island.smoothedGradient(atMeters: 0)
+        for distance in stride(from: 1.0, through: island.lengthMeters, by: 1) {
+            let current = island.smoothedGradient(atMeters: distance)
+            XCTAssertLessThan(abs(current - previous), 1.0, "step at \(distance) m")
+            previous = current
+        }
+    }
         let island = Route.island
         XCTAssertEqual(island.lengthMeters, 8200)
         // The loop closes: same elevation at start and end.

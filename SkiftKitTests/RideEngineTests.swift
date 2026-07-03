@@ -28,7 +28,7 @@ final class RideEngineTests: XCTestCase {
         }
         XCTAssertGreaterThan(engine.speedKmh, 20)
         XCTAssertGreaterThan(engine.distanceMeters, 300)
-        XCTAssertEqual(engine.gradientPercent, engine.route.gradient(atMeters: engine.distanceMeters), accuracy: 0.001)
+        XCTAssertEqual(engine.gradientPercent, engine.route.smoothedGradient(atMeters: engine.distanceMeters), accuracy: 0.001)
     }
 
     func testSendsScaledGradeToTrainer() {
