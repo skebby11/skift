@@ -7,10 +7,13 @@ enum RiderSettings {
     static let riderKgKey = "riderKg"
     static let bikeKgKey = "bikeKg"
     static let trainerDifficultyKey = "trainerDifficulty"
+    static let ftpKey = "ftpWatts"
 
     static let defaultRiderKg = 75.0
     static let defaultBikeKg = 8.0
     static let defaultTrainerDifficulty = 0.5
+    /// Functional Threshold Power — drives the HUD's power-zone chip.
+    static let defaultFTP = 200.0
 }
 
 /// The standard macOS Settings window (⌘,).
@@ -21,6 +24,8 @@ struct SettingsView: View {
     private var bikeKg = RiderSettings.defaultBikeKg
     @AppStorage(RiderSettings.trainerDifficultyKey)
     private var trainerDifficulty = RiderSettings.defaultTrainerDifficulty
+    @AppStorage(RiderSettings.ftpKey)
+    private var ftp = RiderSettings.defaultFTP
 
     var body: some View {
         Form {
@@ -31,6 +36,10 @@ struct SettingsView: View {
                 }
                 Slider(value: $bikeKg, in: 5...15, step: 0.5) {
                     Text("Bike weight: \(bikeKg, specifier: "%.1f") kg")
+                }
+                // FTP only affects the zone display, not the physics.
+                Slider(value: $ftp, in: 80...400, step: 5) {
+                    Text("FTP: \(Int(ftp)) W")
                 }
             }
             Section("Trainer") {

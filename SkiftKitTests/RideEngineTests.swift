@@ -110,6 +110,41 @@ final class RideEngineTests: XCTestCase {
         XCTAssertEqual(engine.elapsedSeconds, 30, accuracy: 0.001)
     }
 
+    func testAutoPausesAtStandstillWithNoPower() {
+        let engine = RideEngine(route: .island)
+        engine.start(dataSource: { FTMS.IndoorBikeData(powerWatts: 0) }, control: nil)
+        engine.stop() // drive manually
+        for _ in 0..<100 {
+            engine.step(dt: 0.1)
+        }
+        XCTAssertTrue(engine.isAutoPaused)
+        XCTAssertEqual(engine.elapsedSeconds, 0) // dead time not counted
+        XCTAssertTrue(engine.recorder.samples.isEmpty)
+    }
+
+    func testDoesNotPauseWhileCoastingDownhill() {
+        // 0 W but rolling: a downhill stretch keeps the rider moving without
+        // power. The loop must close (equal start/end elevation) or the wrap
+        // seam becomes a fake vertical wall.
+        let descent = Route(name: "Descent", points: [
+            RoutePoint(distanceMeters: 0, elevationMeters: 50),
+            RoutePoint(distanceMeters: 1000, elevationMeters: 0),
+            RoutePoint(distanceMeters: 2000, elevationMeters: 50),
+        ])
+        // Mutable power source: pedal for 5 s to get rolling, then coast.
+        final class PowerBox { var watts = 150 }
+        let box = PowerBox()
+        let engine = RideEngine(route: descent)
+        engine.start(dataSource: { FTMS.IndoorBikeData(powerWatts: box.watts) }, control: nil)
+        engine.stop() // drive manually
+        for step in 0..<600 {
+            if step == 50 { box.watts = 0 }
+            engine.step(dt: 0.1)
+        }
+        XCTAssertFalse(engine.isAutoPaused) // rolling downhill at 0 W ≠ paused
+        XCTAssertGreaterThan(engine.elapsedSeconds, 50)
+    }
+
     func testLapWrapsDistanceButKeepsTotal() {
         let shortLoop = Route(name: "Short", points: [
             RoutePoint(distanceMeters: 0, elevationMeters: 0),
