@@ -47,6 +47,8 @@ final class RouteTests: XCTestCase {
             previous = current
         }
     }
+
+    func testIslandRouteIsCoherent() {
         let island = Route.island
         XCTAssertEqual(island.lengthMeters, 8200)
         // The loop closes: same elevation at start and end.
