@@ -190,32 +190,43 @@ actual multiplayer (hardest), Windows/Linux (if stack B), iOS/tvOS (if stack A).
 
 ## 8. Status & to-do
 
-All v1 decisions are resolved (see Decision log). **M0–M4 are code-complete
-and merged on `main`** (PRs #1–#6, CI-green, 39 unit tests): BLE spike, ride
-engine, 3D world with placeholder art, recording/summary/TCX export/settings.
-Nothing has touched real hardware or a real screen yet.
+All v1 decisions are resolved (see Decision log). **v1 is feature-complete
+on `main`** (PRs #1–#10, CI-green, 53 unit tests) and waiting for its first
+run on real hardware. What the game does today:
+
+- Main menu → guided pairing (or **demo mode**: playable on any Mac, power
+  from a slider) → ride setup with **target distance** (Free/5/10/20/40 km)
+  → 3D ride → auto-completion at the target → summary → TCX export.
+- 3D island: spline track, smoothed gradients (no resistance steps), dashed
+  center line, start/finish arch, km markers, village, central mountain,
+  rocks, varied trees; mini map + elevation profile overlays.
+- Avatar animated at render rate (60+ fps interpolation): spinning wheels,
+  cadence-driven pedals, slope pitch; eased chase camera.
+- Training HUD: watts first, power zones off FTP (Settings), W/kg, heart
+  rate, ride clock with Zwift-style auto-pause.
 
 *Keep this list current: check items off (or strike them) as they land, and
 add new ones as they emerge.*
 
 ### To-do — next up
 
-- [ ] **Hardware validation session** (Sebastiano, at the Mac with the D500;
-  the `REVIEW:` markers in the code are the detailed checklist):
+- [ ] **Validation session** (Sebastiano, at the Mac; the `REVIEW:` markers
+  in the code are the detailed checklist):
   - [ ] `xcodegen generate`, build, run; grant Bluetooth permission
-  - [ ] Scan → connect to the D500; verify live power/cadence/speed
-  - [ ] Manual slope slider: pedals get physically harder/easier
+  - [ ] **Demo mode first** (no trainer needed): menu → demo ride → check 3D
+        world, animated avatar, HUD, auto-pause, summary; screenshot for the
+        art discussion
+  - [ ] With the D500: scan → connect; verify live power/cadence/speed
+  - [ ] Full ride: resistance follows terrain, smooth on profile corners;
+        speeds believable vs. Zwift at the same watts
   - [ ] Log a few raw Indoor Bike Data payloads (which fields does the D500 send?)
-  - [ ] Full ride loop: does resistance follow the terrain? Speeds believable
-        vs. Zwift on the same watts?
-  - [ ] 3D scene renders (island, road, trees, avatar, chase camera) —
-        take a screenshot for the art-pass discussion
-  - [ ] Post-ride summary appears; export TCX; upload to Strava succeeds
+  - [ ] Target ride (5 km) auto-completes into the summary
+  - [ ] Export TCX; upload to Strava succeeds
 - [ ] **Fix whatever the validation session finds** (expect BLE quirks and
-  ugly 3D — that's the point of the session)
-- [ ] **M3 art pass** (needs the screenshot + direction): reshape track
-  control points, real coastline/terrain instead of ribbons, avatar model
-  with pedaling animation, skybox, camera polish
+  rough 3D — that's the point of the session)
+- [ ] **Art pass** (needs the screenshot + direction): reshape track control
+  points, real coastline/terrain instead of ribbons, nicer avatar, skybox,
+  camera polish
 - [ ] **M5 — ship v0.1**: app icon, code signing + notarization, GitHub
   release with .dmg, README screenshots/demo video, supported-trainers list
 
@@ -229,7 +240,7 @@ add new ones as they emerge.*
 - [ ] Trainer test matrix beyond the D500 (Wahoo, Tacx, Elite via community)
 - [ ] FIT export (Strava-native format; TCX ships first)
 - [ ] Ride history persistence in-app
-- [ ] Smoothed route gradients (no resistance steps at segment boundaries)
+- [x] ~~Smoothed route gradients~~ (shipped in PR #9)
 - [ ] Ghost rider (race your previous recording — cheap "multiplayer")
 - [ ] ERG mode / structured workouts
 - [ ] Heart-rate strap via BLE HRS (separate sensor pairing)
