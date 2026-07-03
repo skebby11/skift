@@ -9,10 +9,11 @@
 Bluetooth (FTMS) and syncs the route gradient back to the trainer, so an 8%
 wall on screen is an 8% wall in your legs.
 
-> **Status: early development — full v1 skeleton, pre-release.**
-> Everything below works in code and CI (39 unit tests), but the app hasn't
-> been validated on real hardware yet and the 3D world is placeholder art.
-> Not ready for daily training — ready for curious contributors.
+> **Status: v1 feature-complete, pre-release.**
+> Everything below works in code and CI (53 unit tests), but the app hasn't
+> been validated on real hardware yet and the 3D art is still first-pass
+> procedural. Not ready for daily training — ready for curious contributors.
+> No trainer? **Demo mode** makes the whole game playable with a power slider.
 
 ## Why
 
@@ -22,18 +23,23 @@ single player, one map, your watts — no subscription, no account, no cloud.
 
 ## Features (v1 scope)
 
+- 🎮 **A real game flow** — main menu → guided pairing → ride setup with a
+  **target distance selector** (free / 5 / 10 / 20 / 40 km, auto-finish) →
+  ride → summary. **Demo mode** plays without any hardware.
 - 🔌 **Trainer connection over BLE FTMS** — guided pairing, live power /
   cadence / speed / heart rate from any FTMS trainer
 - ⚡ **Power-based riding** — your real watts drive the avatar through a
-  physics model (gravity, rolling resistance, aero drag); watts are the
-  headline number in the ride HUD
-- ⛰️ **Slope simulation** — the route gradient is sent to the trainer
-  (FTMS SIM mode) with a configurable "trainer difficulty" scale
-- 🏝️ **One 3D island loop** — 8.2 km with a ~5% climb, rendered in RealityKit
-  (placeholder low-poly art for now), chase camera, mini map, elevation profile
+  physics model (gravity, rolling resistance, aero drag); the HUD leads with
+  watts, **power zones off your FTP**, W/kg, and a Zwift-style **auto-pause**
+- ⛰️ **Slope simulation** — the smoothed route gradient is sent to the
+  trainer (FTMS SIM mode) with a configurable "trainer difficulty" scale
+- 🏝️ **One 3D island loop** — 8.2 km with a ~5% climb around a mountain:
+  spline road with markings, start/finish arch, km signs, village, forest;
+  animated avatar (spinning wheels, pedaling cadence) interpolated at 60+ fps,
+  chase camera, mini map, elevation profile
 - 📊 **Ride recording** — per-second samples, post-ride summary (avg/max
   power, elevation gain, energy), **TCX export → upload to Strava**
-- ⚙️ **Settings** — rider/bike weight, trainer difficulty (⌘,)
+- ⚙️ **Settings** — rider/bike weight, FTP, trainer difficulty (⌘,)
 
 Out of scope for v1: multiplayer, racing, ERG workouts, ANT+. See
 [`Plan.md`](Plan.md) for the roadmap and every design decision.
