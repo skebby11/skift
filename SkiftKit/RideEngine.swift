@@ -27,6 +27,14 @@ public final class RideEngine: ObservableObject {
     @Published public private(set) var cadenceRpm: Double?
     @Published public private(set) var heartRateBpm: Int?
 
+    /// Simulated ride clock for the HUD (seconds since "Start ride").
+    @Published public private(set) var elapsedSeconds: Double = 0
+    /// Optional finish line, in cumulative meters. When crossed the engine
+    /// completes the ride on its own (stops the loop, flips `isCompleted`).
+    @Published public private(set) var targetDistanceMeters: Double?
+    /// True once the target distance has been reached (never set on free rides).
+    @Published public private(set) var isCompleted = false
+
     /// Fraction of the real gradient sent to the trainer (Zwift's "trainer
     /// difficulty"); physics always uses the full gradient, so this changes
     /// how climbs FEEL, not how fast the avatar goes.
@@ -73,10 +81,14 @@ public final class RideEngine: ObservableObject {
     public func start(
         dataSource: @escaping () -> FTMS.IndoorBikeData,
         control: TrainerControlling?,
-        profile: RiderProfile? = nil
+        profile: RiderProfile? = nil,
+        targetDistanceMeters: Double? = nil
     ) {
         self.dataSource = dataSource
         self.control = control
+        self.targetDistanceMeters = targetDistanceMeters
+        isCompleted = false
+        elapsedSeconds = 0
         // Always rebuild the physics: a fresh ride starts from a standstill,
         // not at whatever speed the previous ride ended with.
         physics = PhysicsEngine(profile: profile ?? physics.profile)
@@ -121,8 +133,18 @@ public final class RideEngine: ObservableObject {
         cadenceRpm = data.cadenceRpm
         heartRateBpm = data.heartRateBpm
         rideClock += dt
+        elapsedSeconds = rideClock
         syncGradeToTrainer(dt: dt)
         recordSampleIfDue(dt: dt, data: data)
+
+        // Auto-complete when the chosen target distance is reached: stop the
+        // loop (no further grade commands) and let the UI move to the summary.
+        // Guarded on isCompleted (not isRiding) so it fires exactly once even
+        // if steps are driven externally (tests) after the timer stopped.
+        if let target = targetDistanceMeters, totalDistanceMeters >= target, !isCompleted {
+            isCompleted = true
+            stop()
+        }
     }
 
     /// Appends one sample per simulated second to the recorder.

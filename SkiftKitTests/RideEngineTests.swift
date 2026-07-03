@@ -72,6 +72,43 @@ final class RideEngineTests: XCTestCase {
         XCTAssertEqual(engine.heartRateBpm, 150)
     }
 
+    func testCompletesWhenTargetDistanceReached() {
+        let flat = Route(name: "Flat", points: [
+            RoutePoint(distanceMeters: 0, elevationMeters: 0),
+            RoutePoint(distanceMeters: 1000, elevationMeters: 0),
+        ])
+        let engine = RideEngine(route: flat)
+        engine.start(
+            dataSource: { FTMS.IndoorBikeData(powerWatts: 300) },
+            control: nil,
+            targetDistanceMeters: 100
+        )
+        engine.stop() // kill the timer; drive manually
+        for _ in 0..<2000 where !engine.isCompleted {
+            engine.step(dt: 0.1)
+        }
+        XCTAssertTrue(engine.isCompleted)
+        XCTAssertFalse(engine.isRiding)
+        XCTAssertGreaterThanOrEqual(engine.totalDistanceMeters, 100)
+    }
+
+    func testFreeRideNeverCompletes() {
+        let (engine, _) = makeEngine()
+        for _ in 0..<600 {
+            engine.step(dt: 0.1)
+        }
+        XCTAssertFalse(engine.isCompleted)
+        XCTAssertNil(engine.targetDistanceMeters)
+    }
+
+    func testElapsedClockTracksSimulatedTime() {
+        let (engine, _) = makeEngine()
+        for _ in 0..<300 { // 30 simulated seconds
+            engine.step(dt: 0.1)
+        }
+        XCTAssertEqual(engine.elapsedSeconds, 30, accuracy: 0.001)
+    }
+
     func testLapWrapsDistanceButKeepsTotal() {
         let shortLoop = Route(name: "Short", points: [
             RoutePoint(distanceMeters: 0, elevationMeters: 0),
