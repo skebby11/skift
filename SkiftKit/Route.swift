@@ -35,11 +35,24 @@ public struct Route: Equatable {
     }
 
     /// Gradient in percent (rise/run × 100) of the segment containing `distance`.
+    /// Steps at segment boundaries — use `smoothedGradient` for anything the
+    /// rider feels (trainer resistance, physics).
     public func gradient(atMeters distance: Double) -> Double {
         let (from, to, _) = segment(atMeters: distance)
         let run = to.distanceMeters - from.distanceMeters
         guard run > 0 else { return 0 }
         return (to.elevationMeters - from.elevationMeters) / run * 100
+    }
+
+    /// Gradient as a central difference of elevation over ±`windowMeters`.
+    /// Continuous everywhere (elevation is continuous and the loop closes),
+    /// so the trainer's resistance ramps smoothly through profile corners
+    /// instead of stepping; converges to the raw segment slope in the middle
+    /// of segments longer than the window.
+    public func smoothedGradient(atMeters distance: Double, windowMeters: Double = 30) -> Double {
+        let ahead = elevation(atMeters: distance + windowMeters)
+        let behind = elevation(atMeters: distance - windowMeters)
+        return (ahead - behind) / (2 * windowMeters) * 100
     }
 
     private func segment(atMeters distance: Double) -> (RoutePoint, RoutePoint, Double) {
