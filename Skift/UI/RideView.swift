@@ -29,13 +29,33 @@ struct RideView: View {
                     metric("Cadence", engine.cadenceRpm.map { String(format: "%.0f", $0) } ?? "—", unit: "rpm")
                     metric("Speed", String(format: "%.1f", engine.speedKmh), unit: "km/h")
                     metric("Distance", String(format: "%.2f", engine.totalDistanceMeters / 1000), unit: "km")
+                    metric("Time", formatTime(engine.elapsedSeconds), unit: "")
                     metric("Gradient", String(format: "%+.1f", engine.gradientPercent), unit: "%")
                     metric("Elevation", String(format: "%.0f", engine.elevationMeters), unit: "m")
+                }
+            }
+
+            // Finish-line progress, only on target rides (not free rides).
+            if let target = engine.targetDistanceMeters {
+                ProgressView(value: min(engine.totalDistanceMeters / target, 1)) {
+                    Text(String(
+                        format: "%.1f / %.0f km",
+                        engine.totalDistanceMeters / 1000,
+                        target / 1000
+                    ))
+                    .font(.caption)
+                    .monospacedDigit()
                 }
             }
             ElevationProfileView(route: engine.route, positionMeters: engine.distanceMeters)
                 .frame(height: 140)
         }
+    }
+
+    /// h:mm:ss ride clock for the HUD.
+    private func formatTime(_ seconds: Double) -> String {
+        let total = Int(seconds)
+        return String(format: "%d:%02d:%02d", total / 3600, (total / 60) % 60, total % 60)
     }
 
     private func metric(_ label: String, _ value: String, unit: String, emphasized: Bool = false) -> some View {

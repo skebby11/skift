@@ -1,11 +1,25 @@
 import SwiftUI
 import SkiftKit
 
+/// Which screen the game is on. One linear flow, no hidden states:
+/// menu → pairing → ride setup → riding → summary → menu.
+enum GamePhase {
+    case menu
+    case pairing
+    case rideSetup
+    case riding
+    case summary
+}
+
+/// Root view: owns the long-lived objects (trainer, engine) and drives the
+/// game flow. Each screen is its own view; this file only does wiring.
 struct ContentView: View {
     @StateObject private var trainer = TrainerManager()
     @StateObject private var engine = RideEngine(route: .island)
-    @State private var grade = 0.0
-    @State private var showSummary = false
+    @StateObject private var demoPower = DemoPowerSource()
+
+    @State private var phase: GamePhase = .menu
+    @State private var isDemoMode = false
 
     // Rider settings (editable in the Settings window, applied at ride start).
     @AppStorage(RiderSettings.riderKgKey)
@@ -16,197 +30,104 @@ struct ContentView: View {
     private var trainerDifficulty = RiderSettings.defaultTrainerDifficulty
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 20) {
-            connectionSection
-            if case .connected = trainer.state {
-                Divider()
-                metricsSection
-                Divider()
-                if engine.isRiding {
-                    rideSection
-                } else {
-                    startRideButton
-                    slopeSection
+        Group {
+            switch phase {
+            case .menu:
+                MenuView {
+                    // Skip pairing when the trainer is already good to go.
+                    isDemoMode = false
+                    phase = trainer.hasControl ? .rideSetup : .pairing
+                }
+            case .pairing:
+                PairingView(
+                    trainer: trainer,
+                    onReady: { phase = .rideSetup },
+                    onDemo: {
+                        isDemoMode = true
+                        phase = .rideSetup
+                    },
+                    onBack: { phase = .menu }
+                )
+            case .rideSetup:
+                RideSetupView(
+                    route: engine.route,
+                    isDemo: isDemoMode,
+                    onStart: { target in startRide(targetMeters: target) },
+                    onBack: { phase = .menu }
+                )
+            case .riding:
+                ridingScreen
+            case .summary:
+                RideSummaryView(recorder: engine.recorder) {
+                    phase = .menu
                 }
             }
-            if let error = trainer.lastError {
-                Text(error)
-                    .font(.callout)
-                    .foregroundStyle(.red)
-            }
-            Spacer(minLength: 0)
         }
-        .padding(24)
-        .frame(minWidth: 560, minHeight: 560)
-        // The sheet must live on a view that stays in the hierarchy: when the
-        // ride ends, rideSection disappears, so a sheet attached there would
-        // never present.
-        .sheet(isPresented: $showSummary) {
-            RideSummaryView(recorder: engine.recorder) {
-                showSummary = false
+        .frame(minWidth: 780, minHeight: 640)
+        // The engine completes target rides on its own (finish line crossed);
+        // the flow reacts here rather than the engine knowing about screens.
+        .onChange(of: engine.isCompleted) { _, completed in
+            if completed && phase == .riding {
+                endRide()
             }
         }
     }
 
-    // MARK: - Ride
+    // MARK: - Riding screen
 
-    private var startRideButton: some View {
-        Button("Start ride on \(engine.route.name)", systemImage: "flag.checkered") {
-            engine.trainerDifficulty = trainerDifficulty
-            engine.start(
-                dataSource: { [weak trainer] in trainer?.liveData ?? FTMS.IndoorBikeData() },
-                control: trainer,
-                profile: RiderProfile(riderKg: riderKg, bikeKg: bikeKg)
-            )
-        }
-        .disabled(!trainer.hasControl)
-    }
-
-    private var rideSection: some View {
+    private var ridingScreen: some View {
         VStack(alignment: .leading, spacing: 12) {
             RideView(engine: engine)
-            Button("End ride") {
-                engine.stop()
-                trainer.setGrade(percent: 0) // release the resistance
-                showSummary = true
-            }
-        }
-    }
 
-    // MARK: - Connection
-
-    @ViewBuilder
-    private var connectionSection: some View {
-        switch trainer.state {
-        case .bluetoothUnavailable(let reason):
-            Label(reason, systemImage: "exclamationmark.triangle")
-                .foregroundStyle(.orange)
-        case .idle:
-            // Guided first-run flow: most "it doesn't connect" cases are a
-            // sleeping trainer or another app holding it, so say it upfront.
-            VStack(alignment: .leading, spacing: 8) {
-                Text("Connect your trainer")
-                    .font(.headline)
-                Label("Power the trainer and spin the pedals to wake it", systemImage: "1.circle")
-                Label("Close other trainer apps (Zwift, MyWhoosh…) — only one can control it", systemImage: "2.circle")
-                Label("Scan and pick it from the list", systemImage: "3.circle")
-            }
-            .font(.callout)
-            .foregroundStyle(.secondary)
-            Button("Scan for trainers", systemImage: "antenna.radiowaves.left.and.right") {
-                trainer.startScan()
-            }
-            deviceList
-        case .scanning:
-            HStack(spacing: 8) {
-                ProgressView().controlSize(.small)
-                Text("Scanning for FTMS trainers…")
-                Spacer()
-                Button("Stop") { trainer.stopScan() }
-            }
-            if trainer.discovered.isEmpty {
-                Text("Nothing yet? Spin the pedals — most trainers only advertise when awake.")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
-            deviceList
-        case .connecting:
-            HStack(spacing: 8) {
-                ProgressView().controlSize(.small)
-                Text("Connecting…")
-            }
-        case .connected(let name):
-            HStack {
-                Label(name, systemImage: "bicycle")
-                    .font(.headline)
-                if trainer.hasControl {
-                    Text("SIM control active")
+            if isDemoMode {
+                // Demo mode: the slider IS the pedals.
+                HStack {
+                    Label("Demo power", systemImage: "slider.horizontal.3")
                         .font(.caption)
-                        .foregroundStyle(.green)
+                        .foregroundStyle(.orange)
+                    Slider(value: $demoPower.watts, in: 0...400)
+                    Text("\(Int(demoPower.watts)) W")
+                        .monospacedDigit()
+                        .frame(width: 56, alignment: .trailing)
                 }
-                Spacer()
-                Button("Disconnect") { trainer.disconnect() }
             }
-        }
-    }
 
-    @ViewBuilder
-    private var deviceList: some View {
-        ForEach(trainer.discovered) { device in
             HStack {
-                Text(device.name)
-                Text("\(device.rssi) dBm")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
                 Spacer()
-                Button("Connect") { trainer.connect(device) }
-            }
-            .padding(.vertical, 2)
-        }
-    }
-
-    // MARK: - Live metrics
-
-    private var metricsSection: some View {
-        Grid(alignment: .leading, horizontalSpacing: 32, verticalSpacing: 8) {
-            GridRow {
-                metric("Power", trainer.liveData.powerWatts.map { "\($0)" }, unit: "W")
-                metric("Cadence", trainer.liveData.cadenceRpm.map { String(format: "%.0f", $0) }, unit: "rpm")
-            }
-            GridRow {
-                metric("Speed", trainer.liveData.speedKmh.map { String(format: "%.1f", $0) }, unit: "km/h")
-                metric("Heart rate", trainer.liveData.heartRateBpm.map { "\($0)" }, unit: "bpm")
-            }
-        }
-    }
-
-    private func metric(_ label: String, _ value: String?, unit: String) -> some View {
-        VStack(alignment: .leading, spacing: 2) {
-            Text(label)
-                .font(.caption)
-                .foregroundStyle(.secondary)
-            HStack(alignment: .firstTextBaseline, spacing: 4) {
-                Text(value ?? "—")
-                    .font(.system(size: 28, weight: .semibold, design: .rounded))
-                    .monospacedDigit()
-                Text(unit)
-                    .font(.callout)
-                    .foregroundStyle(.secondary)
-            }
-        }
-    }
-
-    // MARK: - Slope control
-
-    /// Manual slope slider from the M1 spike. Kept as a debug/demo tool when
-    /// not riding (during a ride the engine drives the trainer instead).
-    /// REVIEW: hide behind a "debug" toggle once the app has real settings.
-    private var slopeSection: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack(alignment: .firstTextBaseline) {
-                Text("Slope")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                Text(String(format: "%+.1f %%", grade))
-                    .font(.system(size: 22, weight: .semibold, design: .rounded))
-                    .monospacedDigit()
-            }
-            Slider(value: $grade, in: -10...15, step: 0.5) {
-                Text("Slope")
-            } minimumValueLabel: {
-                Text("-10%")
-            } maximumValueLabel: {
-                Text("+15%")
-            } onEditingChanged: { editing in
-                if !editing {
-                    trainer.setGrade(percent: grade)
+                Button("End ride", role: .destructive) {
+                    endRide()
                 }
             }
-            Text("Release the slider to send the gradient to the trainer.")
-                .font(.caption)
-                .foregroundStyle(.secondary)
         }
-        .disabled(!trainer.hasControl)
+        .padding(20)
+    }
+
+    // MARK: - Flow actions
+
+    private func startRide(targetMeters: Double?) {
+        engine.trainerDifficulty = trainerDifficulty
+
+        // Demo and real rides go through the same engine API: only the data
+        // source and the control sink differ (see docs/game-flow.md).
+        let dataSource: () -> FTMS.IndoorBikeData = isDemoMode
+            ? { [demoPower] in demoPower.currentData() }
+            : { [weak trainer] in trainer?.liveData ?? FTMS.IndoorBikeData() }
+
+        engine.start(
+            dataSource: dataSource,
+            control: isDemoMode ? nil : trainer,
+            profile: RiderProfile(riderKg: riderKg, bikeKg: bikeKg),
+            targetDistanceMeters: targetMeters
+        )
+        phase = .riding
+    }
+
+    private func endRide() {
+        engine.stop()
+        if !isDemoMode {
+            trainer.setGrade(percent: 0) // release the resistance
+        }
+        phase = .summary
     }
 }
 
