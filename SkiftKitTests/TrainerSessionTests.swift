@@ -187,4 +187,63 @@ final class TrainerSessionTests: XCTestCase {
 
         XCTAssertEqual(session.lastError, "Trainer rejected command 0x11.")
     }
+
+    // MARK: - Task 4: user disconnect vs auto-reconnect
+
+    private func connectedSession(id: UUID = UUID(), name: String = "D500") -> (TrainerSession, [TrainerSession.Command]) {
+        let session = TrainerSession()
+        var commands: [TrainerSession.Command] = []
+        session.onCommand = { commands.append($0) }
+        session.connect(id: id, name: name)
+        session.handle(.didConnect(name: name))
+        session.handle(.didDiscoverFTMSService(found: true))
+        session.handle(.didDiscoverCharacteristics(indoorBikeData: true, controlPoint: true))
+        session.handle(.didReceiveControlPointResponse(Data([0x80, 0x00, 0x01])))
+        return (session, commands)
+    }
+
+    func testUserDisconnectDoesNotScheduleReconnect() {
+        let id = UUID()
+        let session = TrainerSession()
+        var commands: [TrainerSession.Command] = []
+        session.onCommand = { commands.append($0) }
+        session.connect(id: id, name: "D500")
+        session.handle(.didConnect(name: "D500"))
+        session.handle(.didDiscoverFTMSService(found: true))
+        session.handle(.didDiscoverCharacteristics(indoorBikeData: true, controlPoint: true))
+        session.handle(.didReceiveControlPointResponse(Data([0x80, 0x00, 0x01])))
+
+        session.disconnect()
+        XCTAssertEqual(commands.suffix(2), [.cancelReconnect, .cancelConnection])
+
+        session.handle(.didDisconnect(message: nil))
+
+        XCTAssertEqual(session.state, .idle)
+        XCTAssertFalse(commands.contains { if case .scheduleReconnect = $0 { return true }; return false })
+    }
+
+    func testUnexpectedDisconnectSchedulesFirstRetryAfterOneSecond() {
+        let (session, commands) = connectedSession()
+        var later = commands
+
+        session.onCommand = { later.append($0) }
+        session.handle(.didDisconnect(message: "Connection lost."))
+
+        XCTAssertEqual(session.state, .reconnecting(name: "D500", attempt: 1))
+        XCTAssertFalse(session.hasControl)
+        XCTAssertEqual(session.liveData, FTMS.IndoorBikeData())
+        XCTAssertEqual(later.last, .scheduleReconnect(after: 1))
+    }
+
+    func testReconnectTimerFiredEmitsConnectToSamePeripheral() {
+        let id = UUID()
+        let (session, _) = connectedSession(id: id)
+        var commands: [TrainerSession.Command] = []
+        session.onCommand = { commands.append($0) }
+        session.handle(.didDisconnect(message: "Connection lost."))
+
+        session.handle(.reconnectTimerFired)
+
+        XCTAssertEqual(commands.last, .connect(id: id))
+    }
 }

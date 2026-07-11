@@ -124,8 +124,8 @@ public final class TrainerSession {
 
 **Files:** Same.
 
-- [ ] **Step 1:** Failing tests: `testUserDisconnectDoesNotScheduleReconnect` (rule 5), `testUnexpectedDisconnectSchedulesFirstRetryAfterOneSecond` (rule 6, also asserts `liveData` reset and state `.reconnecting(name:, attempt: 1)`), `testReconnectTimerFiredEmitsConnectToSamePeripheral`.
-- [ ] **Steps 2-5:** TDD cycle, commit `feat(ble): auto-reconnect on unexpected disconnect`.
+- [x] **Step 1:** Failing tests: `testUserDisconnectDoesNotScheduleReconnect` (rule 5), `testUnexpectedDisconnectSchedulesFirstRetryAfterOneSecond` (rule 6, also asserts `liveData` reset and state `.reconnecting(name:, attempt: 1)`), `testReconnectTimerFiredEmitsConnectToSamePeripheral`.
+- [x] **Steps 2-5:** TDD cycle, commit `feat(ble): auto-reconnect on unexpected disconnect`.
 
 ### Task 5: Backoff schedule, cap, reset, grade restore
 

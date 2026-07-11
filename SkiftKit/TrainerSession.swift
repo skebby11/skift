@@ -64,6 +64,10 @@ public final class TrainerSession {
     /// so a reconnect can target the same device.
     private var connectingID: UUID?
 
+    /// Set by `disconnect()`, consumed by the next `didDisconnect`, so that a
+    /// user-initiated drop never schedules a reconnect (rule 5).
+    private var userInitiatedDisconnect = false
+
     public init() {}
 
     // MARK: - User intents
@@ -88,7 +92,9 @@ public final class TrainerSession {
     }
 
     public func disconnect() {
-        // Task 4 will fill in reconnect suppression semantics.
+        userInitiatedDisconnect = true
+        emit(.cancelReconnect)
+        emit(.cancelConnection)
     }
 
     public func setGrade(percent: Double) {
@@ -116,8 +122,16 @@ public final class TrainerSession {
         case let .didFailToConnect(message):
             lastError = message ?? "Connection failed."
             state = .idle
-        case .didDisconnect:
-            break // Task 4.
+        case let .didDisconnect(message):
+            if let message { lastError = message }
+            if userInitiatedDisconnect {
+                userInitiatedDisconnect = false
+                resetToIdle()
+            } else if case let .connected(name) = state {
+                beginReconnecting(name: name)
+            } else {
+                resetToIdle()
+            }
         case let .didDiscoverFTMSService(found):
             if found {
                 emit(.discoverCharacteristics)
@@ -141,8 +155,23 @@ public final class TrainerSession {
         case let .didReceiveControlPointResponse(data):
             handleControlPointResponse(data)
         case .reconnectTimerFired:
-            break // Task 5.
+            if let id = connectingID {
+                emit(.connect(id: id))
+            }
         }
+    }
+
+    private func resetToIdle() {
+        hasControl = false
+        liveData = FTMS.IndoorBikeData()
+        state = .idle
+    }
+
+    private func beginReconnecting(name: String) {
+        hasControl = false
+        liveData = FTMS.IndoorBikeData()
+        state = .reconnecting(name: name, attempt: 1)
+        emit(.scheduleReconnect(after: 1))
     }
 
     private func handleControlPointResponse(_ data: Data) {
