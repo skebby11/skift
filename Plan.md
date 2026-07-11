@@ -232,7 +232,8 @@ add new ones as they emerge.*
 
 ### To-do — backlog (v1.x / v2, roughly ordered)
 
-- [ ] BLE auto-reconnect after dropped link
+- [x] ~~BLE auto-reconnect after dropped link~~ (shipped: `TrainerSession`
+      state machine with infinite 1→30 s backoff — see docs/ble-reliability.md)
 - [ ] Italian localization (UI ships in English as the OSS lingua franca;
       add a String Catalog with `it` once strings stabilize)
 - [ ] App icon (needed for M5; must be original or CC0 — stock-icon licenses
@@ -259,3 +260,4 @@ add new ones as they emerge.*
 | 2026-07-02 | Test hardware: Van Rysel D500 (Decathlon) | Owned by the team; supports BLE FTMS natively (plus ANT+ and Zwift Cog/Click), 15% max grade simulation — ideal dev target |
 | 2026-07-02 | Stack: Swift + SwiftUI + RealityKit + Core Bluetooth | iPhone/iPad/Apple TV reach and first-class App Store path judged worth the learning curve vs. the web stack (§5) |
 | 2026-07-02 | Ride export: TCX first, FIT later | Plain XML, no binary SDK, Strava imports it; FIT stays on the backlog |
+| 2026-07-11 | Auto-reconnect: infinite exponential backoff (1→30 s cap) | Ride integrity protected by existing auto-pause; BLE logic extracted into pure `TrainerSession` for unit testing |

@@ -154,6 +154,6 @@ public final class TrainerSession {
 
 **Files:** Modify `Plan.md` (move "BLE auto-reconnect" out of the backlog; add a decision-log **table row** matching Plan.md §9's pipe-delimited format: `| 2026-07-11 | Auto-reconnect: infinite exponential backoff (1→30 s cap) | Ride integrity protected by existing auto-pause |`), `README.md` feature list one-liner if it mentions reconnect gaps.
 
-- [ ] **Step 1:** Update docs.
-- [ ] **Step 2:** Full CI-equivalent run: `xcodegen generate` + build + test, all green. Report the test count delta (was 47).
-- [ ] **Step 3:** Commit `docs: record BLE auto-reconnect decision and status`.
+- [x] **Step 1:** Update docs.
+- [x] **Step 2:** Full CI-equivalent run: `xcodegen generate` + build + test, all green. Report the test count delta (was 47).
+- [x] **Step 3:** Commit `docs: record BLE auto-reconnect decision and status`.

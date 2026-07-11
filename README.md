@@ -27,7 +27,8 @@ single player, one map, your watts — no subscription, no account, no cloud.
   **target distance selector** (free / 5 / 10 / 20 / 40 km, auto-finish) →
   ride → summary. **Demo mode** plays without any hardware.
 - 🔌 **Trainer connection over BLE FTMS** — guided pairing, live power /
-  cadence / speed / heart rate from any FTMS trainer
+  cadence / speed / heart rate from any FTMS trainer, automatic reconnect
+  with backoff if the link drops mid-ride
 - ⚡ **Power-based riding** — your real watts drive the avatar through a
   physics model (gravity, rolling resistance, aero drag); the HUD leads with
   watts, **power zones off your FTP**, W/kg, and a Zwift-style **auto-pause**
