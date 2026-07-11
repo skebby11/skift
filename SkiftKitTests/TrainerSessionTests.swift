@@ -387,4 +387,40 @@ final class TrainerSessionTests: XCTestCase {
         XCTAssertEqual(session.state, .idle)
         XCTAssertFalse(commands.contains { if case .scheduleReconnect = $0 { return true }; return false })
     }
+
+    // MARK: - Spec-review findings
+
+    /// Mirrors today's TrainerManager guard (`central.state == .poweredOn else
+    /// return`): scanning while Bluetooth is unavailable must be a no-op.
+    func testStartScanWhileBluetoothUnavailableIsIgnored() {
+        let session = TrainerSession()
+        var commands: [TrainerSession.Command] = []
+        session.onCommand = { commands.append($0) }
+        session.handle(.bluetoothDidBecomeUnavailable(reason: "Bluetooth is turned off."))
+        let commandCountBefore = commands.count
+
+        session.startScan()
+
+        XCTAssertEqual(session.state, .bluetoothUnavailable(reason: "Bluetooth is turned off."))
+        XCTAssertEqual(commands.count, commandCountBefore)
+    }
+
+    /// CoreBluetooth may not deliver a didDisconnect when the radio powers
+    /// off, so the unavailable event itself must clear connection-scoped state.
+    func testBluetoothUnavailableWhileConnectedClearsControlAndLiveData() {
+        let (session, _) = connectedSession()
+        session.handle(.didReceiveIndoorBikeData(Data([
+            0x44, 0x00,
+            0xC4, 0x09,
+            0xB4, 0x00,
+            0xFA, 0x00,
+        ])))
+        XCTAssertTrue(session.hasControl)
+        XCTAssertNotEqual(session.liveData, FTMS.IndoorBikeData())
+
+        session.handle(.bluetoothDidBecomeUnavailable(reason: "Bluetooth is turned off."))
+
+        XCTAssertFalse(session.hasControl)
+        XCTAssertEqual(session.liveData, FTMS.IndoorBikeData())
+    }
 }

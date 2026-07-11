@@ -76,6 +76,9 @@ public final class TrainerSession {
     // MARK: - User intents
 
     public func startScan() {
+        // Same guard as today's TrainerManager (`central.state == .poweredOn`):
+        // scanning while Bluetooth is unavailable is a no-op.
+        if case .bluetoothUnavailable = state { return }
         discovered = []
         lastError = nil
         state = .scanning
@@ -114,6 +117,10 @@ public final class TrainerSession {
         case .bluetoothDidBecomeAvailable:
             if case .bluetoothUnavailable = state { state = .idle }
         case let .bluetoothDidBecomeUnavailable(reason):
+            // CoreBluetooth may not deliver a didDisconnect when the radio
+            // powers off, so clear connection-scoped state here as well.
+            hasControl = false
+            liveData = FTMS.IndoorBikeData()
             state = .bluetoothUnavailable(reason: reason)
             emit(.cancelReconnect)
         case let .didDiscover(id, name, rssi):
@@ -123,6 +130,11 @@ public final class TrainerSession {
                 discovered.append(DiscoveredTrainer(id: id, name: name, rssi: rssi))
             }
         case let .didConnect(name):
+            // DECISION: entering .connected here resets the reconnect attempt
+            // counter on link-up, not after control is re-granted. A trainer
+            // that accepts connections but keeps failing the handshake will
+            // therefore loop at the ~1 s delay — acceptable, since each drop
+            // is treated as a fresh outage with fresh backoff.
             state = .connected(name: name)
             emit(.discoverServices)
         case let .didFailToConnect(message):
