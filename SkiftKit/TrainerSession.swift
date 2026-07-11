@@ -99,8 +99,11 @@ public final class TrainerSession {
 
     public func handle(_ event: Event) {
         switch event {
-        case .bluetoothDidBecomeAvailable, .bluetoothDidBecomeUnavailable:
-            break // Task 3.
+        case .bluetoothDidBecomeAvailable:
+            if case .bluetoothUnavailable = state { state = .idle }
+        case let .bluetoothDidBecomeUnavailable(reason):
+            state = .bluetoothUnavailable(reason: reason)
+            emit(.cancelReconnect)
         case let .didDiscover(id, name, rssi):
             if let index = discovered.firstIndex(where: { $0.id == id }) {
                 discovered[index] = DiscoveredTrainer(id: id, name: name, rssi: rssi)
@@ -110,19 +113,26 @@ public final class TrainerSession {
         case let .didConnect(name):
             state = .connected(name: name)
             emit(.discoverServices)
-        case .didFailToConnect:
-            break // Task 3.
+        case let .didFailToConnect(message):
+            lastError = message ?? "Connection failed."
+            state = .idle
         case .didDisconnect:
             break // Task 4.
         case let .didDiscoverFTMSService(found):
             if found {
                 emit(.discoverCharacteristics)
+            } else {
+                lastError = "Connected device does not expose the FTMS service."
+                emit(.cancelConnection)
             }
         case let .didDiscoverCharacteristics(indoorBikeData, controlPoint):
             if indoorBikeData && controlPoint {
                 emit(.subscribeIndoorBikeData)
                 emit(.subscribeControlPoint)
                 emit(.write(FTMS.requestControl()))
+            } else {
+                lastError = "Connected device does not expose the required FTMS characteristics."
+                emit(.cancelConnection)
             }
         case let .didReceiveIndoorBikeData(data):
             if let parsed = FTMS.parseIndoorBikeData(data) {
@@ -137,10 +147,16 @@ public final class TrainerSession {
 
     private func handleControlPointResponse(_ data: Data) {
         guard let response = FTMS.parseControlPointResponse(data) else { return }
-        guard response.requestOpCode == FTMS.OpCode.requestControl.rawValue else { return }
-        hasControl = response.result == .success
-        if hasControl {
-            emit(.write(FTMS.startOrResume()))
+        if response.requestOpCode == FTMS.OpCode.requestControl.rawValue {
+            hasControl = response.result == .success
+            if hasControl {
+                emit(.write(FTMS.startOrResume()))
+            } else {
+                lastError = "Trainer refused control — is another app (e.g. Zwift) connected?"
+            }
+        } else if response.result != .success {
+            let opcode = String(format: "0x%02X", response.requestOpCode)
+            lastError = "Trainer rejected command \(opcode)."
         }
     }
 

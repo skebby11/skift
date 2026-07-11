@@ -117,8 +117,8 @@ public final class TrainerSession {
 
 **Files:** Same.
 
-- [ ] **Step 1:** Failing tests: `testControlRefusedSetsErrorAndNoControl` (result byte ≠ success), `testMissingFTMSServiceCancelsConnection`, `testMissingControlPointCharacteristicCancelsConnection`, `testDidFailToConnectFromInitialConnectResetsToIdleWithError`, `testBluetoothUnavailableSetsStateAndCancelsReconnect`, `testRejectedNonControlCommandSetsError` (rule from today's `handleControlPointResponse`).
-- [ ] **Steps 2-5:** TDD cycle, commit `feat(ble): TrainerSession error paths`.
+- [x] **Step 1:** Failing tests: `testControlRefusedSetsErrorAndNoControl` (result byte ≠ success), `testMissingFTMSServiceCancelsConnection`, `testMissingControlPointCharacteristicCancelsConnection`, `testDidFailToConnectFromInitialConnectResetsToIdleWithError`, `testBluetoothUnavailableSetsStateAndCancelsReconnect`, `testRejectedNonControlCommandSetsError` (rule from today's `handleControlPointResponse`).
+- [x] **Steps 2-5:** TDD cycle, commit `feat(ble): TrainerSession error paths`.
 
 ### Task 4: User disconnect vs auto-reconnect
 

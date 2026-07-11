@@ -98,4 +98,93 @@ final class TrainerSessionTests: XCTestCase {
         XCTAssertEqual(session.discovered, [])
         XCTAssertNil(session.lastError)
     }
+
+    // MARK: - Task 3: error paths
+
+    func testControlRefusedSetsErrorAndNoControl() {
+        let session = TrainerSession()
+        let id = UUID()
+        session.connect(id: id, name: "D500")
+        session.handle(.didConnect(name: "D500"))
+        session.handle(.didDiscoverFTMSService(found: true))
+        session.handle(.didDiscoverCharacteristics(indoorBikeData: true, controlPoint: true))
+
+        // Control-point failure response for Request Control (0x00).
+        session.handle(.didReceiveControlPointResponse(Data([0x80, 0x00, 0x05])))
+
+        XCTAssertFalse(session.hasControl)
+        XCTAssertEqual(session.lastError, "Trainer refused control — is another app (e.g. Zwift) connected?")
+    }
+
+    func testMissingFTMSServiceCancelsConnection() {
+        let session = TrainerSession()
+        var commands: [TrainerSession.Command] = []
+        session.onCommand = { commands.append($0) }
+        let id = UUID()
+        session.connect(id: id, name: "D500")
+        session.handle(.didConnect(name: "D500"))
+
+        session.handle(.didDiscoverFTMSService(found: false))
+
+        XCTAssertEqual(session.lastError, "Connected device does not expose the FTMS service.")
+        XCTAssertEqual(commands.last, .cancelConnection)
+    }
+
+    func testMissingControlPointCharacteristicCancelsConnection() {
+        let session = TrainerSession()
+        var commands: [TrainerSession.Command] = []
+        session.onCommand = { commands.append($0) }
+        let id = UUID()
+        session.connect(id: id, name: "D500")
+        session.handle(.didConnect(name: "D500"))
+        session.handle(.didDiscoverFTMSService(found: true))
+
+        session.handle(.didDiscoverCharacteristics(indoorBikeData: true, controlPoint: false))
+
+        XCTAssertEqual(session.lastError, "Connected device does not expose the required FTMS characteristics.")
+        XCTAssertEqual(commands.last, .cancelConnection)
+    }
+
+    func testDidFailToConnectFromInitialConnectResetsToIdleWithError() {
+        let session = TrainerSession()
+        let id = UUID()
+        session.connect(id: id, name: "D500")
+
+        session.handle(.didFailToConnect(message: "Timed out."))
+
+        XCTAssertEqual(session.state, .idle)
+        XCTAssertEqual(session.lastError, "Timed out.")
+
+        let sessionNoMessage = TrainerSession()
+        sessionNoMessage.connect(id: id, name: "D500")
+        sessionNoMessage.handle(.didFailToConnect(message: nil))
+        XCTAssertEqual(sessionNoMessage.lastError, "Connection failed.")
+    }
+
+    func testBluetoothUnavailableSetsStateAndCancelsReconnect() {
+        let session = TrainerSession()
+        var commands: [TrainerSession.Command] = []
+        session.onCommand = { commands.append($0) }
+
+        session.handle(.bluetoothDidBecomeUnavailable(reason: "Bluetooth is turned off."))
+
+        XCTAssertEqual(session.state, .bluetoothUnavailable(reason: "Bluetooth is turned off."))
+        XCTAssertTrue(commands.contains(.cancelReconnect))
+    }
+
+    func testRejectedNonControlCommandSetsError() {
+        let session = TrainerSession()
+        let id = UUID()
+        session.connect(id: id, name: "D500")
+        session.handle(.didConnect(name: "D500"))
+        session.handle(.didDiscoverFTMSService(found: true))
+        session.handle(.didDiscoverCharacteristics(indoorBikeData: true, controlPoint: true))
+        session.handle(.didReceiveControlPointResponse(Data([0x80, 0x00, 0x01]))) // control granted
+
+        // Same payload as FTMSTests.testParsesFailureResponse: Set Indoor Bike
+        // Simulation (0x11) rejected with controlNotPermitted.
+        session.handle(.didReceiveControlPointResponse(Data([0x80, 0x11, 0x05])))
+
+        XCTAssertEqual(session.lastError, "Trainer rejected command 0x11.")
+    }
 }
