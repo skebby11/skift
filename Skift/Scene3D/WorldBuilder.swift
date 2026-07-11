@@ -2,9 +2,8 @@ import AppKit
 import RealityKit
 import SkiftKit
 
-/// Builds the placeholder 3D world from a track layout: water, a green
-/// island ribbon, the road, trees and a sun. Everything is generated from
-/// primitives and `MeshDescriptor` — no art assets yet.
+/// Builds the procedural 3D world from a track layout: continuous island,
+/// road, water, landmarks, vegetation and atmosphere.
 ///
 enum WorldBuilder {
 
@@ -21,12 +20,14 @@ enum WorldBuilder {
         )
         root.addChild(water)
 
-        // The "island" is three concentric ribbons that follow the road:
-        // sand (widest, lowest), grass, then the road itself on top.
-        // REVIEW: replace with a real heightmap coastline in the art pass —
-        // ribbons leave visible gaps on the inside of tight corners.
-        root.addChild(try ribbon(layout: layout, halfWidth: 70, yOffset: -6, color: WorldPalette.sand))
-        root.addChild(try ribbon(layout: layout, halfWidth: 45, yOffset: -0.5, color: WorldPalette.grass))
+        let terrain = ModelEntity(
+            mesh: try IslandTerrainBuilder.makeMesh(layout: layout),
+            materials: [matteMaterial(WorldPalette.grass)]
+        )
+        root.addChild(terrain)
+
+        // A narrow sun-baked shoulder separates asphalt from vegetation.
+        root.addChild(try ribbon(layout: layout, halfWidth: 5.4, yOffset: -0.18, color: WorldPalette.sand))
         root.addChild(try ribbon(layout: layout, halfWidth: 4, yOffset: 0, color: WorldPalette.road))
 
         // Game-feel layers, in rough draw order (see docs/playable-map.md).
