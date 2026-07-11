@@ -127,7 +127,12 @@ public final class TrainerSession {
             emit(.discoverServices)
         case let .didFailToConnect(message):
             lastError = message ?? "Connection failed."
-            if case let .reconnecting(name, attempt) = state {
+            if userInitiatedDisconnect {
+                // A user disconnect can race an in-flight (re)connect attempt;
+                // never continue the backoff loop once the user has bailed.
+                userInitiatedDisconnect = false
+                state = .idle
+            } else if case let .reconnecting(name, attempt) = state {
                 scheduleNextReconnectAttempt(name: name, previousAttempt: attempt)
             } else {
                 state = .idle

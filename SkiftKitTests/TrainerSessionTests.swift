@@ -370,4 +370,21 @@ final class TrainerSessionTests: XCTestCase {
 
         XCTAssertEqual(commands.last, .write(FTMS.setIndoorBikeSimulation(gradePercent: 2.0)))
     }
+
+    /// Regression: a user `disconnect()` can race an in-flight reconnect
+    /// attempt (backoff timer already fired, `.connect(id)` in progress). The
+    /// resulting `didFailToConnect` must not continue the backoff loop.
+    func testUserDisconnectDuringReconnectDoesNotContinueBackoff() {
+        let (session, _) = connectedSession()
+        session.handle(.didDisconnect(message: "Connection lost.")) // now .reconnecting(attempt: 1)
+        session.handle(.reconnectTimerFired) // in-flight connect attempt
+
+        var commands: [TrainerSession.Command] = []
+        session.onCommand = { commands.append($0) }
+        session.disconnect()
+        session.handle(.didFailToConnect(message: "Cancelled."))
+
+        XCTAssertEqual(session.state, .idle)
+        XCTAssertFalse(commands.contains { if case .scheduleReconnect = $0 { return true }; return false })
+    }
 }
