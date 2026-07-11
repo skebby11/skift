@@ -6,18 +6,7 @@ import SkiftKit
 /// island ribbon, the road, trees and a sun. Everything is generated from
 /// primitives and `MeshDescriptor` — no art assets yet.
 ///
-/// REVIEW: all colors, sizes and light intensity below are first-draft values
-/// chosen blind; tune them on a real screen during the M3 art pass.
 enum WorldBuilder {
-
-    // MARK: - Palette (low-poly, slightly desaturated)
-
-    private static let waterColor = NSColor(red: 0.15, green: 0.4, blue: 0.65, alpha: 1)
-    private static let grassColor = NSColor(red: 0.35, green: 0.6, blue: 0.3, alpha: 1)
-    private static let sandColor = NSColor(red: 0.86, green: 0.79, blue: 0.55, alpha: 1)
-    private static let roadColor = NSColor(white: 0.35, alpha: 1)
-    private static let trunkColor = NSColor(red: 0.45, green: 0.32, blue: 0.2, alpha: 1)
-    private static let crownColor = NSColor(red: 0.22, green: 0.45, blue: 0.25, alpha: 1)
 
     // MARK: - World
 
@@ -28,7 +17,7 @@ enum WorldBuilder {
         // island always sits above the water.
         let water = ModelEntity(
             mesh: .generatePlane(width: 8000, depth: 8000),
-            materials: [SimpleMaterial(color: waterColor, isMetallic: false)]
+            materials: [matteMaterial(WorldPalette.water)]
         )
         root.addChild(water)
 
@@ -36,9 +25,9 @@ enum WorldBuilder {
         // sand (widest, lowest), grass, then the road itself on top.
         // REVIEW: replace with a real heightmap coastline in the art pass —
         // ribbons leave visible gaps on the inside of tight corners.
-        root.addChild(try ribbon(layout: layout, halfWidth: 70, yOffset: -6, color: sandColor))
-        root.addChild(try ribbon(layout: layout, halfWidth: 45, yOffset: -0.5, color: grassColor))
-        root.addChild(try ribbon(layout: layout, halfWidth: 4, yOffset: 0, color: roadColor))
+        root.addChild(try ribbon(layout: layout, halfWidth: 70, yOffset: -6, color: WorldPalette.sand))
+        root.addChild(try ribbon(layout: layout, halfWidth: 45, yOffset: -0.5, color: WorldPalette.grass))
+        root.addChild(try ribbon(layout: layout, halfWidth: 4, yOffset: 0, color: WorldPalette.road))
 
         // Game-feel layers, in rough draw order (see docs/playable-map.md).
         root.addChild(try dashedCenterLine(layout: layout))
@@ -46,12 +35,16 @@ enum WorldBuilder {
         root.addChild(kilometerMarkers(layout: layout))
         root.addChild(startVillage(layout: layout))
         root.addChild(centralMountain(layout: layout))
+        root.addChild(try distantHorizon(layout: layout))
         root.addChild(rocks(layout: layout))
         root.addChild(makeTrees(layout: layout))
 
         let sun = DirectionalLight()
-        sun.light.intensity = 6000
-        sun.look(at: SIMD3(0, 0, 0), from: SIMD3(1500, 2500, 1000), relativeTo: nil)
+        sun.light.color = WorldPalette.sun
+        // Keep primitive materials matte-looking: high intensities create
+        // plastic white hotspots before the PBR material pass lands.
+        sun.light.intensity = 3_200
+        sun.look(at: SIMD3(0, 0, 0), from: SIMD3(-1800, 1400, 900), relativeTo: nil)
         root.addChild(sun)
 
         return root
@@ -90,7 +83,7 @@ enum WorldBuilder {
         descriptor.positions = MeshBuffers.Positions(positions)
         descriptor.primitives = .triangles(indices)
         let mesh = try MeshResource.generate(from: [descriptor])
-        return ModelEntity(mesh: mesh, materials: [SimpleMaterial(color: .white, isMetallic: false)])
+        return ModelEntity(mesh: mesh, materials: [matteMaterial(WorldPalette.roadMarking)])
     }
 
     /// Start/finish arch at km 0: red pillars + white crossbar spanning the
@@ -158,11 +151,11 @@ enum WorldBuilder {
     private static func startVillage(layout: TrackLayout) -> Entity {
         let village = Entity()
         let wallColors = [
-            NSColor(red: 0.93, green: 0.9, blue: 0.82, alpha: 1),  // cream
-            NSColor(red: 0.85, green: 0.6, blue: 0.45, alpha: 1),  // terracotta
-            NSColor(red: 0.75, green: 0.82, blue: 0.88, alpha: 1), // pale blue
+            WorldPalette.villageWall,
+            NSColor(red: 0.72, green: 0.52, blue: 0.37, alpha: 1),
+            NSColor(red: 0.64, green: 0.70, blue: 0.69, alpha: 1),
         ]
-        let roofMaterial = SimpleMaterial(color: NSColor(red: 0.55, green: 0.25, blue: 0.2, alpha: 1), isMetallic: false)
+        let roofMaterial = matteMaterial(WorldPalette.terracotta)
 
         for index in 0..<5 {
             let distance = 60.0 + Double(index) * 45
@@ -174,7 +167,7 @@ enum WorldBuilder {
             let house = Entity()
             let body = ModelEntity(
                 mesh: .generateBox(size: SIMD3<Float>(6, 4, 5)),
-                materials: [SimpleMaterial(color: wallColors[index % wallColors.count], isMetallic: false)]
+                materials: [matteMaterial(wallColors[index % wallColors.count])]
             )
             body.position.y = 2
             house.addChild(body)
@@ -204,17 +197,104 @@ enum WorldBuilder {
 
         let mountain = ModelEntity(
             mesh: .generateSphere(radius: 300),
-            materials: [SimpleMaterial(color: NSColor(red: 0.45, green: 0.5, blue: 0.42, alpha: 1), isMetallic: false)]
+            materials: [matteMaterial(WorldPalette.mountain)]
         )
         mountain.scale = SIMD3(1, 0.55, 1) // peak ≈ 165 m, above the road's 110 m
         mountain.position = SIMD3(center.x, 0, center.z)
         return mountain
     }
 
+    /// Faceted silhouettes beyond the island create aerial perspective and
+    /// prevent the sea from ending at an empty, perfectly flat horizon.
+    private static func distantHorizon(layout: TrackLayout) throws -> Entity {
+        let container = Entity()
+        let center = trackCenter(layout: layout)
+        let islandRadius = trackRadius(layout: layout, around: center)
+        let material = matteMaterial(WorldPalette.distantMountain)
+
+        for index in 0..<9 {
+            let angle = Float(index) / 9 * 2 * .pi
+            let radius = islandRadius + Float(1_500 + (index % 3) * 220)
+            let width = Float(320 + (index * 37) % 180)
+            let height = Float(120 + (index * 41) % 110)
+            let mountain = ModelEntity(
+                mesh: try facetedMountainMesh(radius: width, height: height, seed: index),
+                materials: [material]
+            )
+            mountain.position = SIMD3(
+                center.x + cos(angle) * radius,
+                -18,
+                center.z + sin(angle) * radius
+            )
+            mountain.orientation = simd_quatf(angle: -angle, axis: SIMD3(0, 1, 0))
+            container.addChild(mountain)
+        }
+        return container
+    }
+
+    private static func trackCenter(layout: TrackLayout) -> SIMD3<Float> {
+        var sum = SIMD3<Float>(repeating: 0)
+        let samples = 64
+        for sample in 0..<samples {
+            let distance = layout.route.lengthMeters * Double(sample) / Double(samples)
+            sum += layout.position(atMeters: distance)
+        }
+        return sum / Float(samples)
+    }
+
+    private static func trackRadius(layout: TrackLayout, around center: SIMD3<Float>) -> Float {
+        var radius: Float = 0
+        let samples = 128
+        for sample in 0..<samples {
+            let distance = layout.route.lengthMeters * Double(sample) / Double(samples)
+            let position = layout.position(atMeters: distance)
+            radius = max(radius, simd_length(SIMD2(position.x - center.x, position.z - center.z)))
+        }
+        return radius
+    }
+
+    /// A deliberately coarse asymmetric mountain: one uneven base ring, one
+    /// shoulder ring and an offset peak. Twelve sides keep facets visible.
+    private static func facetedMountainMesh(radius: Float, height: Float, seed: Int) throws -> MeshResource {
+        let segments = 12
+        var positions: [SIMD3<Float>] = []
+        positions.reserveCapacity(segments * 2 + 1)
+
+        for ring in 0..<2 {
+            let ringRadius = ring == 0 ? radius : radius * 0.48
+            let y = ring == 0 ? Float(0) : height * 0.48
+            for segment in 0..<segments {
+                let angle = Float(segment) / Float(segments) * 2 * .pi
+                let variation = 0.82 + Float((segment * 17 + seed * 11) % 29) / 100
+                positions.append(SIMD3(cos(angle) * ringRadius * variation, y, sin(angle) * ringRadius * variation))
+            }
+        }
+        positions.append(SIMD3(radius * 0.09, height, -radius * 0.06))
+
+        var indices: [UInt32] = []
+        for segment in 0..<segments {
+            let next = (segment + 1) % segments
+            let a = UInt32(segment)
+            let b = UInt32(next)
+            let c = UInt32(segments + segment)
+            let d = UInt32(segments + next)
+            indices.append(contentsOf: [a, c, b, b, c, d])
+            indices.append(contentsOf: [b, c, a, d, c, b])
+
+            let peak = UInt32(segments * 2)
+            indices.append(contentsOf: [c, peak, d, d, peak, c])
+        }
+
+        var descriptor = MeshDescriptor(name: "distant-mountain")
+        descriptor.positions = MeshBuffers.Positions(positions)
+        descriptor.primitives = .triangles(indices)
+        return try MeshResource.generate(from: [descriptor])
+    }
+
     /// Deterministic rock scatter on the grass, for texture between trees.
     private static func rocks(layout: TrackLayout) -> Entity {
         let container = Entity()
-        let material = SimpleMaterial(color: NSColor(white: 0.55, alpha: 1), isMetallic: false)
+        let material = matteMaterial(WorldPalette.rock)
         for index in 0..<24 {
             let distance = Double(index) * 331.0
             let sideSign: Float = index % 2 == 0 ? 1 : -1
@@ -258,8 +338,8 @@ enum WorldBuilder {
         var wheels: [ModelEntity] = []
         var pedals: [ModelEntity] = []
 
-        let frameMaterial = SimpleMaterial(color: .systemRed, isMetallic: false)
-        let riderMaterial = SimpleMaterial(color: .systemOrange, isMetallic: false)
+        let frameMaterial = SimpleMaterial(color: NSColor(white: 0.12, alpha: 1), isMetallic: false)
+        let riderMaterial = SimpleMaterial(color: WorldPalette.riderOrange, isMetallic: false)
         let wheelMaterial = SimpleMaterial(color: NSColor(white: 0.15, alpha: 1), isMetallic: false)
 
         // Wheels: spheres squashed on X into discs. (generateCylinder is
@@ -329,8 +409,8 @@ enum WorldBuilder {
     /// every run and every test sees the same world.
     private static func makeTrees(layout: TrackLayout) -> Entity {
         let container = Entity()
-        let trunkMaterial = SimpleMaterial(color: trunkColor, isMetallic: false)
-        let crownMaterial = SimpleMaterial(color: crownColor, isMetallic: false)
+        let trunkMaterial = matteMaterial(WorldPalette.trunk)
+        let crownMaterial = matteMaterial(WorldPalette.crown)
 
         // One tree every ~140 m; cheap enough (~60 entities) and enough to
         // give the rider a sense of speed. REVIEW: density and placement.
@@ -389,15 +469,20 @@ enum WorldBuilder {
     ) throws -> ModelEntity {
         let sampleCount = max(Int(layout.route.lengthMeters / stepMeters), 3)
         var positions: [SIMD3<Float>] = []
+        var normals: [SIMD3<Float>] = []
         positions.reserveCapacity(sampleCount * 2)
+        normals.reserveCapacity(sampleCount * 2)
 
         for sample in 0..<sampleCount {
             let distance = layout.route.lengthMeters * Double(sample) / Double(sampleCount)
             let center = layout.position(atMeters: distance) + SIMD3(0, yOffset, 0)
             let tangent = layout.tangent(atMeters: distance)
             let side = simd_normalize(simd_cross(SIMD3<Float>(0, 1, 0), tangent))
+            let normal = simd_normalize(simd_cross(tangent, side))
             positions.append(center + side * halfWidth)
             positions.append(center - side * halfWidth)
+            normals.append(normal)
+            normals.append(normal)
         }
 
         var indices: [UInt32] = []
@@ -413,8 +498,20 @@ enum WorldBuilder {
 
         var descriptor = MeshDescriptor(name: "ribbon")
         descriptor.positions = MeshBuffers.Positions(positions)
+        descriptor.normals = MeshBuffers.Normals(normals)
         descriptor.primitives = .triangles(indices)
         let mesh = try MeshResource.generate(from: [descriptor])
-        return ModelEntity(mesh: mesh, materials: [SimpleMaterial(color: color, isMetallic: false)])
+        return ModelEntity(mesh: mesh, materials: [matteMaterial(color)])
+    }
+
+    /// High roughness removes the plastic highlights produced by
+    /// `SimpleMaterial` under the directional sun while preserving broad,
+    /// readable low-poly shading.
+    private static func matteMaterial(_ color: NSColor) -> PhysicallyBasedMaterial {
+        var material = PhysicallyBasedMaterial()
+        material.baseColor = .init(tint: color)
+        material.roughness = .init(floatLiteral: 0.92)
+        material.metallic = .init(floatLiteral: 0)
+        return material
     }
 }

@@ -46,11 +46,9 @@ struct RideSceneView: NSViewRepresentable {
 
     func makeNSView(context: Context) -> ARView {
         let arView = ARView(frame: .zero)
-        // Flat sky color for now. REVIEW: replace with a gradient/skybox
-        // (environment.background supports a skybox texture) in the art pass.
-        arView.environment.background = .color(
-            NSColor(red: 0.55, green: 0.75, blue: 0.95, alpha: 1)
-        )
+        // A warm atmospheric blue keeps the procedural scene cohesive while
+        // the distant geometry supplies depth at the horizon.
+        arView.environment.background = .color(WorldPalette.sky)
 
         // One static world anchor at the origin holds everything.
         let anchor = AnchorEntity(world: SIMD3<Float>(0, 0, 0))
