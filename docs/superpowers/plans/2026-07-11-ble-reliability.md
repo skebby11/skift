@@ -110,8 +110,8 @@ public final class TrainerSession {
 
 **Files:** Modify both Task 1 files.
 
-- [ ] **Step 1:** Failing tests: `testDiscoveredTrainersDeduplicateById` (same id twice updates rssi in place, preserves order), `testIndoorBikeDataUpdatesLiveData` (use a known-good payload copied from `FTMSTests`), `testMalformedIndoorBikeDataIsIgnored`, `testStopScanWhileScanningReturnsToIdle`, `testStartScanClearsPreviousDiscoveredAndError`.
-- [ ] **Step 2:** Run; FAIL. **Step 3:** Implement. **Step 4:** Run; PASS. **Step 5:** Commit `feat(ble): TrainerSession discovery and live-data handling`.
+- [x] **Step 1:** Failing tests: `testDiscoveredTrainersDeduplicateById` (same id twice updates rssi in place, preserves order), `testIndoorBikeDataUpdatesLiveData` (use a known-good payload copied from `FTMSTests`), `testMalformedIndoorBikeDataIsIgnored`, `testStopScanWhileScanningReturnsToIdle`, `testStartScanClearsPreviousDiscoveredAndError`.
+- [x] **Step 2:** Run; FAIL. **Step 3:** Implement. **Step 4:** Run; PASS. **Step 5:** Commit `feat(ble): TrainerSession discovery and live-data handling`.
 
 ### Task 3: Error paths
 

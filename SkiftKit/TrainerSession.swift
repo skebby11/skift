@@ -124,8 +124,10 @@ public final class TrainerSession {
                 emit(.subscribeControlPoint)
                 emit(.write(FTMS.requestControl()))
             }
-        case .didReceiveIndoorBikeData:
-            break // Task 2.
+        case let .didReceiveIndoorBikeData(data):
+            if let parsed = FTMS.parseIndoorBikeData(data) {
+                liveData = parsed
+            }
         case let .didReceiveControlPointResponse(data):
             handleControlPointResponse(data)
         case .reconnectTimerFired:
