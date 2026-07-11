@@ -1,6 +1,6 @@
 # Skift — Project Plan
 
-*Last updated: 2026-07-02 · Status: planning, no code yet*
+*Last updated: 2026-07-11 · Status: v1 feature-complete, validation in progress*
 
 ## 1. What we are building
 
@@ -191,7 +191,7 @@ actual multiplayer (hardest), Windows/Linux (if stack B), iOS/tvOS (if stack A).
 ## 8. Status & to-do
 
 All v1 decisions are resolved (see Decision log). **v1 is feature-complete
-on `main`** (PRs #1–#10, CI-green, 53 unit tests) and waiting for its first
+on `main`** (PRs #1–#10, CI-green, 47 unit tests) and waiting for its first
 run on real hardware. What the game does today:
 
 - Main menu → guided pairing (or **demo mode**: playable on any Mac, power
