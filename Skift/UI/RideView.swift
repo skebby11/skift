@@ -1,98 +1,162 @@
 import SwiftUI
 import SkiftKit
 
-/// The ride screen: 3D world, HUD numbers, and the elevation profile with
-/// the rider's position.
+/// Full-bleed ride canvas with a compact, high-contrast training HUD.
 struct RideView: View {
     @ObservedObject var engine: RideEngine
 
+    @AppStorage(RiderSettings.ftpKey)
+    private var ftp = RiderSettings.defaultFTP
+
     var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            // The layout comes from the engine: building a TrackLayout means
-            // sampling the whole spline, far too heavy for a per-frame call.
+        ZStack {
             RideSceneView(
                 layout: engine.layout,
                 distanceMeters: engine.distanceMeters,
                 speedKmh: engine.speedKmh,
                 cadenceRpm: engine.cadenceRpm ?? 0
             )
-            .frame(minHeight: 300)
-            .clipShape(RoundedRectangle(cornerRadius: 8))
-            // Zwift-style overlay: top-down mini map in the corner.
-            .overlay(alignment: .topTrailing) {
-                MiniMapView(layout: engine.layout, positionMeters: engine.distanceMeters)
-                    .frame(width: 130, height: 130)
-                    .padding(10)
-            }
-            // Auto-pause badge: the clock is stopped, say so.
-            .overlay(alignment: .top) {
-                if engine.isAutoPaused {
-                    Label("Paused — start pedaling", systemImage: "pause.circle.fill")
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 6)
-                        .background(.black.opacity(0.55), in: Capsule())
-                        .foregroundStyle(.white)
-                        .padding(.top, 12)
-                }
-            }
-            Grid(alignment: .leading, horizontalSpacing: 28, verticalSpacing: 8) {
-                GridRow {
-                    // Power leads: training is power-based, it's THE number.
-                    metric("Power", "\(engine.powerWatts)", unit: "W", emphasized: true)
-                    metric("Cadence", engine.cadenceRpm.map { String(format: "%.0f", $0) } ?? "—", unit: "rpm")
-                    metric("Speed", String(format: "%.1f", engine.speedKmh), unit: "km/h")
-                    metric("Distance", String(format: "%.2f", engine.totalDistanceMeters / 1000), unit: "km")
-                    metric("Time", formatTime(engine.elapsedSeconds), unit: "")
-                    metric("Gradient", String(format: "%+.1f", engine.gradientPercent), unit: "%")
-                    metric("Elevation", String(format: "%.0f", engine.elevationMeters), unit: "m")
-                }
-            }
+            .ignoresSafeArea()
 
-            // Training context row: power zone (Coggan, from the FTP set in
-            // Settings), W/kg, heart rate when a strap is paired.
-            HStack(spacing: 16) {
-                zoneChip
-                Text(String(format: "%.1f W/kg", Double(engine.powerWatts) / engine.riderProfile.riderKg))
-                    .font(.callout)
+            VStack(spacing: 12) {
+                HStack(alignment: .top, spacing: 12) {
+                    powerPanel
+                    journeyPanel
+                    Spacer(minLength: 12)
+                    routePanel
+                }
+
+                if engine.isAutoPaused {
+                    Label("Paused — start pedaling", systemImage: "pause.fill")
+                        .font(.callout.bold())
+                        .foregroundStyle(.white)
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 8)
+                        .background(.black.opacity(0.72), in: Capsule())
+                }
+
+                Spacer(minLength: 100)
+                elevationPanel
+            }
+            .padding(16)
+        }
+        .background(.black)
+    }
+
+    private var powerPanel: some View {
+        VStack(alignment: .leading, spacing: 7) {
+            Text("POWER")
+                .hudLabel()
+            HStack(alignment: .firstTextBaseline, spacing: 4) {
+                Text("\(engine.powerWatts)")
+                    .font(.system(size: 46, weight: .heavy, design: .rounded))
                     .monospacedDigit()
+                Text("W")
+                    .font(.title3.bold())
+                    .foregroundStyle(.white.opacity(0.7))
+            }
+            .foregroundStyle(.white)
+
+            HStack(spacing: 12) {
+                Label(engine.cadenceRpm.map { String(format: "%.0f rpm", $0) } ?? "— rpm", systemImage: "metronome")
                 if let heartRate = engine.heartRateBpm {
                     Label("\(heartRate) bpm", systemImage: "heart.fill")
-                        .font(.callout)
-                        .foregroundStyle(.red)
+                        .foregroundStyle(.pink)
                 }
-                Spacer()
             }
+            .font(.caption.bold())
+            .monospacedDigit()
+            .foregroundStyle(.white.opacity(0.82))
 
-            // Finish-line progress, only on target rides (not free rides).
-            if let target = engine.targetDistanceMeters {
-                ProgressView(value: min(engine.totalDistanceMeters / target, 1)) {
-                    Text(String(
-                        format: "%.1f / %.0f km",
-                        engine.totalDistanceMeters / 1000,
-                        target / 1000
-                    ))
-                    .font(.caption)
+            HStack(spacing: 8) {
+                zoneChip
+                Text(String(format: "%.1f W/kg", Double(engine.powerWatts) / engine.riderProfile.riderKg))
                     .monospacedDigit()
+            }
+            .font(.caption.bold())
+        }
+        .hudPanel()
+    }
+
+    private var journeyPanel: some View {
+        HStack(spacing: 20) {
+            hudMetric("SPEED", String(format: "%.1f", engine.speedKmh), "km/h")
+            hudMetric("DISTANCE", String(format: "%.2f", engine.totalDistanceMeters / 1000), "km")
+            hudMetric("TIME", formatTime(engine.elapsedSeconds), "")
+        }
+        .hudPanel()
+    }
+
+    private var routePanel: some View {
+        HStack(spacing: 12) {
+            VStack(alignment: .trailing, spacing: 2) {
+                Text("GRADIENT").hudLabel()
+                HStack(alignment: .firstTextBaseline, spacing: 3) {
+                    Image(systemName: engine.gradientPercent >= 0 ? "arrow.up.right" : "arrow.down.right")
+                        .font(.title3.bold())
+                        .foregroundStyle(.orange)
+                    Text(String(format: "%+.1f", engine.gradientPercent))
+                        .font(.system(size: 30, weight: .bold, design: .rounded))
+                        .monospacedDigit()
+                    Text("%")
+                        .foregroundStyle(.white.opacity(0.65))
+                }
+                Text(String(format: "%.0f m elevation", engine.elevationMeters))
+                    .font(.caption)
+                    .foregroundStyle(.white.opacity(0.7))
+            }
+            MiniMapView(layout: engine.layout, positionMeters: engine.distanceMeters)
+                .frame(width: 112, height: 96)
+        }
+        .foregroundStyle(.white)
+        .hudPanel(padding: 10)
+    }
+
+    private var elevationPanel: some View {
+        VStack(spacing: 7) {
+            HStack {
+                Label("ROUTE PROFILE", systemImage: "mountain.2.fill")
+                    .hudLabel()
+                Spacer()
+                if let target = engine.targetDistanceMeters {
+                    Text(String(format: "%.1f / %.0f km", engine.totalDistanceMeters / 1000, target / 1000))
+                        .font(.caption.bold())
+                        .monospacedDigit()
+                        .foregroundStyle(.white)
                 }
             }
             ElevationProfileView(route: engine.route, positionMeters: engine.distanceMeters)
-                .frame(height: 140)
+                .frame(height: 48)
+            if let target = engine.targetDistanceMeters {
+                ProgressView(value: min(engine.totalDistanceMeters / target, 1))
+                    .tint(.orange)
+            }
         }
+        .hudPanel(padding: 10)
     }
 
-    // FTP from Settings drives the zone chip.
-    @AppStorage(RiderSettings.ftpKey)
-    private var ftp = RiderSettings.defaultFTP
-
-    /// Colored capsule with the current Coggan zone (Z1 gray … Z6 red).
     private var zoneChip: some View {
         let zone = PowerZone.zone(forPower: engine.powerWatts, ftp: ftp)
         return Text("Z\(zone.rawValue) · \(zone.name)")
-            .font(.callout.bold())
-            .padding(.horizontal, 10)
+            .padding(.horizontal, 8)
             .padding(.vertical, 3)
-            .background(zoneColor(zone).opacity(0.25), in: Capsule())
+            .background(zoneColor(zone).opacity(0.28), in: Capsule())
             .foregroundStyle(zoneColor(zone))
+    }
+
+    private func hudMetric(_ label: String, _ value: String, _ unit: String) -> some View {
+        VStack(alignment: .leading, spacing: 3) {
+            Text(label).hudLabel()
+            HStack(alignment: .firstTextBaseline, spacing: 3) {
+                Text(value)
+                    .font(.system(size: 25, weight: .bold, design: .rounded))
+                    .monospacedDigit()
+                if !unit.isEmpty {
+                    Text(unit).font(.caption).foregroundStyle(.white.opacity(0.65))
+                }
+            }
+            .foregroundStyle(.white)
+        }
     }
 
     private func zoneColor(_ zone: PowerZone) -> Color {
@@ -106,48 +170,44 @@ struct RideView: View {
         }
     }
 
-    /// h:mm:ss ride clock for the HUD.
     private func formatTime(_ seconds: Double) -> String {
         let total = Int(seconds)
         return String(format: "%d:%02d:%02d", total / 3600, (total / 60) % 60, total % 60)
     }
+}
 
-    private func metric(_ label: String, _ value: String, unit: String, emphasized: Bool = false) -> some View {
-        VStack(alignment: .leading, spacing: 2) {
-            Text(label)
-                .font(.caption)
-                .foregroundStyle(.secondary)
-            HStack(alignment: .firstTextBaseline, spacing: 4) {
-                Text(value)
-                    .font(.system(size: emphasized ? 32 : 24, weight: emphasized ? .bold : .semibold, design: .rounded))
-                    .monospacedDigit()
-                    .foregroundStyle(emphasized ? AnyShapeStyle(.orange) : AnyShapeStyle(.primary))
-                Text(unit)
-                    .font(.callout)
-                    .foregroundStyle(.secondary)
+private extension View {
+    func hudPanel(padding: CGFloat = 14) -> some View {
+        self.padding(padding)
+            .background(.black.opacity(0.68), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+            .overlay {
+                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    .stroke(.white.opacity(0.12), lineWidth: 1)
             }
-        }
+            .shadow(color: .black.opacity(0.22), radius: 10, y: 4)
+    }
+
+    func hudLabel() -> some View {
+        self.font(.system(size: 10, weight: .bold, design: .rounded))
+            .tracking(1.1)
+            .foregroundStyle(.white.opacity(0.65))
     }
 }
 
-/// Draws the route's elevation profile and a dot at the rider's position.
+/// Draws the route's elevation profile and the rider's position.
 struct ElevationProfileView: View {
     let route: Route
     let positionMeters: Double
-
     private static let sampleCount = 300
 
     var body: some View {
         GeometryReader { geometry in
             let size = geometry.size
             ZStack {
-                profilePath(in: size, closed: true)
-                    .fill(.blue.opacity(0.15))
-                profilePath(in: size, closed: false)
-                    .stroke(.blue, lineWidth: 2)
-                Circle()
-                    .fill(.orange)
-                    .frame(width: 10, height: 10)
+                profilePath(in: size, closed: true).fill(.orange.opacity(0.18))
+                profilePath(in: size, closed: false).stroke(.orange, lineWidth: 2)
+                Circle().fill(.white).frame(width: 8, height: 8)
+                    .shadow(color: .orange, radius: 4)
                     .position(point(atMeters: positionMeters, in: size))
             }
         }
@@ -157,12 +217,8 @@ struct ElevationProfileView: View {
         Path { path in
             for sample in 0...Self.sampleCount {
                 let distance = route.lengthMeters * Double(sample) / Double(Self.sampleCount)
-                let p = point(atMeters: distance, in: size)
-                if sample == 0 {
-                    path.move(to: p)
-                } else {
-                    path.addLine(to: p)
-                }
+                let point = point(atMeters: distance, in: size)
+                sample == 0 ? path.move(to: point) : path.addLine(to: point)
             }
             if closed {
                 path.addLine(to: CGPoint(x: size.width, y: size.height))
@@ -174,18 +230,14 @@ struct ElevationProfileView: View {
 
     private func point(atMeters distance: Double, in size: CGSize) -> CGPoint {
         let elevations = route.points.map(\.elevationMeters)
-        let minElevation = elevations.min() ?? 0
-        let maxElevation = elevations.max() ?? 1
-        let span = max(maxElevation - minElevation, 1)
-        let x = distance / route.lengthMeters * size.width
-        // Leave headroom above and below so the line isn't glued to the edges.
-        let normalized = (route.elevation(atMeters: distance) - minElevation) / span
-        let y = size.height * (0.9 - normalized * 0.75)
-        return CGPoint(x: x, y: y)
+        let low = elevations.min() ?? 0
+        let span = max((elevations.max() ?? 1) - low, 1)
+        let normalized = (route.elevation(atMeters: distance) - low) / span
+        return CGPoint(x: distance / route.lengthMeters * size.width, y: size.height * (0.9 - normalized * 0.75))
     }
 }
 
 #Preview {
     RideView(engine: RideEngine(route: .island))
-        .padding()
+        .frame(width: 1100, height: 700)
 }

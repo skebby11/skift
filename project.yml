@@ -34,11 +34,17 @@ targets:
     type: framework
     platform: macOS
     sources: [SkiftKit]
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: YES
 
   SkiftKitTests:
     type: bundle.unit-test
     platform: macOS
     sources: [SkiftKitTests]
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: YES
     dependencies:
       - target: SkiftKit
 

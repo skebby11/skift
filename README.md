@@ -10,7 +10,7 @@ Bluetooth (FTMS) and syncs the route gradient back to the trainer, so an 8%
 wall on screen is an 8% wall in your legs.
 
 > **Status: v1 feature-complete, pre-release.**
-> Everything below works in code and CI (53 unit tests), but the app hasn't
+> Everything below works in code and CI (47 unit tests), but the app hasn't
 > been validated on real hardware yet and the 3D art is still first-pass
 > procedural. Not ready for daily training — ready for curious contributors.
 > No trainer? **Demo mode** makes the whole game playable with a power slider.
