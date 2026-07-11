@@ -76,30 +76,36 @@ struct ContentView: View {
     // MARK: - Riding screen
 
     private var ridingScreen: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(spacing: 0) {
             RideView(engine: engine)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
 
-            if isDemoMode {
-                // Demo mode: the slider IS the pedals.
-                HStack {
+            HStack(spacing: 16) {
+                if isDemoMode {
                     Label("Demo power", systemImage: "slider.horizontal.3")
-                        .font(.caption)
+                        .font(.caption.bold())
                         .foregroundStyle(.orange)
                     Slider(value: $demoPower.watts, in: 0...400)
+                        .frame(maxWidth: 420)
                     Text("\(Int(demoPower.watts)) W")
+                        .font(.callout.bold())
                         .monospacedDigit()
                         .frame(width: 56, alignment: .trailing)
                 }
-            }
-
-            HStack {
                 Spacer()
-                Button("End ride", role: .destructive) {
+                Button {
                     endRide()
+                } label: {
+                    Label("End ride", systemImage: "flag.checkered")
                 }
+                .buttonStyle(.bordered)
+                .tint(.red)
             }
+            .padding(.horizontal, 16)
+            .frame(height: 52)
+            .foregroundStyle(.white)
+            .background(Color(red: 0.035, green: 0.055, blue: 0.08))
         }
-        .padding(20)
     }
 
     // MARK: - Flow actions
