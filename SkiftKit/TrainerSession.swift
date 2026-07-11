@@ -68,6 +68,9 @@ public final class TrainerSession {
     /// user-initiated drop never schedules a reconnect (rule 5).
     private var userInitiatedDisconnect = false
 
+    /// Last grade passed to `setGrade`, resent once control is (re-)granted.
+    private var lastGrade: Double?
+
     public init() {}
 
     // MARK: - User intents
@@ -98,7 +101,10 @@ public final class TrainerSession {
     }
 
     public func setGrade(percent: Double) {
-        // Task 5 will fill in grade recording/resending semantics.
+        lastGrade = percent
+        if hasControl {
+            emit(.write(FTMS.setIndoorBikeSimulation(gradePercent: percent)))
+        }
     }
 
     // MARK: - BLE events
@@ -121,7 +127,11 @@ public final class TrainerSession {
             emit(.discoverServices)
         case let .didFailToConnect(message):
             lastError = message ?? "Connection failed."
-            state = .idle
+            if case let .reconnecting(name, attempt) = state {
+                scheduleNextReconnectAttempt(name: name, previousAttempt: attempt)
+            } else {
+                state = .idle
+            }
         case let .didDisconnect(message):
             if let message { lastError = message }
             if userInitiatedDisconnect {
@@ -129,6 +139,8 @@ public final class TrainerSession {
                 resetToIdle()
             } else if case let .connected(name) = state {
                 beginReconnecting(name: name)
+            } else if case let .reconnecting(name, attempt) = state {
+                scheduleNextReconnectAttempt(name: name, previousAttempt: attempt)
             } else {
                 resetToIdle()
             }
@@ -171,7 +183,18 @@ public final class TrainerSession {
         hasControl = false
         liveData = FTMS.IndoorBikeData()
         state = .reconnecting(name: name, attempt: 1)
-        emit(.scheduleReconnect(after: 1))
+        emit(.scheduleReconnect(after: backoffDelay(forAttempt: 1)))
+    }
+
+    private func scheduleNextReconnectAttempt(name: String, previousAttempt: Int) {
+        let attempt = previousAttempt + 1
+        state = .reconnecting(name: name, attempt: attempt)
+        emit(.scheduleReconnect(after: backoffDelay(forAttempt: attempt)))
+    }
+
+    /// Exponential backoff: 1, 2, 4, 8, 16, then capped at 30 s — indefinitely.
+    private func backoffDelay(forAttempt attempt: Int) -> TimeInterval {
+        min(pow(2.0, Double(attempt - 1)), 30)
     }
 
     private func handleControlPointResponse(_ data: Data) {
@@ -180,6 +203,9 @@ public final class TrainerSession {
             hasControl = response.result == .success
             if hasControl {
                 emit(.write(FTMS.startOrResume()))
+                if let lastGrade {
+                    emit(.write(FTMS.setIndoorBikeSimulation(gradePercent: lastGrade)))
+                }
             } else {
                 lastError = "Trainer refused control — is another app (e.g. Zwift) connected?"
             }

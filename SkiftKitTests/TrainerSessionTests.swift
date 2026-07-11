@@ -246,4 +246,128 @@ final class TrainerSessionTests: XCTestCase {
 
         XCTAssertEqual(commands.last, .connect(id: id))
     }
+
+    // MARK: - Task 5: backoff schedule, cap, reset, grade restore
+
+    func testBackoffScheduleIsExponentialCappedAt30s() {
+        let (session, initial) = connectedSession()
+        var commands = initial
+        session.onCommand = { commands.append($0) }
+
+        session.handle(.didDisconnect(message: "Connection lost.")) // attempt 1
+
+        var delays: [TimeInterval] = []
+        func recordLastDelay() {
+            if case let .scheduleReconnect(after) = commands.last! { delays.append(after) }
+        }
+        recordLastDelay()
+
+        for _ in 0..<7 {
+            session.handle(.reconnectTimerFired)
+            session.handle(.didFailToConnect(message: "Still down."))
+            recordLastDelay()
+        }
+
+        XCTAssertEqual(delays, [1, 2, 4, 8, 16, 30, 30, 30])
+    }
+
+    func testSuccessfulReconnectRunsFullHandshake() {
+        let id = UUID()
+        let (session, _) = connectedSession(id: id)
+        var commands: [TrainerSession.Command] = []
+        session.onCommand = { commands.append($0) }
+
+        session.handle(.didDisconnect(message: "Connection lost."))
+        session.handle(.reconnectTimerFired)
+        session.handle(.didConnect(name: "D500"))
+        session.handle(.didDiscoverFTMSService(found: true))
+        session.handle(.didDiscoverCharacteristics(indoorBikeData: true, controlPoint: true))
+        session.handle(.didReceiveControlPointResponse(Data([0x80, 0x00, 0x01])))
+
+        XCTAssertEqual(commands, [
+            .scheduleReconnect(after: 1),
+            .connect(id: id),
+            .discoverServices,
+            .discoverCharacteristics,
+            .subscribeIndoorBikeData,
+            .subscribeControlPoint,
+            .write(FTMS.requestControl()),
+            .write(FTMS.startOrResume()),
+        ])
+        XCTAssertEqual(session.state, .connected(name: "D500"))
+        XCTAssertTrue(session.hasControl)
+    }
+
+    func testAttemptCounterResetsAfterSuccessfulReconnect() {
+        let id = UUID()
+        let (session, _) = connectedSession(id: id)
+        session.handle(.didDisconnect(message: "Connection lost."))
+        session.handle(.reconnectTimerFired)
+        session.handle(.didConnect(name: "D500"))
+        session.handle(.didDiscoverFTMSService(found: true))
+        session.handle(.didDiscoverCharacteristics(indoorBikeData: true, controlPoint: true))
+        session.handle(.didReceiveControlPointResponse(Data([0x80, 0x00, 0x01])))
+
+        var commands: [TrainerSession.Command] = []
+        session.onCommand = { commands.append($0) }
+        session.handle(.didDisconnect(message: "Connection lost again."))
+
+        XCTAssertEqual(session.state, .reconnecting(name: "D500", attempt: 1))
+        XCTAssertEqual(commands.last, .scheduleReconnect(after: 1))
+    }
+
+    func testLastGradeIsResentOnceControlRegained() {
+        let id = UUID()
+        let (session, _) = connectedSession(id: id)
+        session.setGrade(percent: 3.5)
+
+        var commands: [TrainerSession.Command] = []
+        session.onCommand = { commands.append($0) }
+        session.handle(.didDisconnect(message: "Connection lost."))
+        session.handle(.reconnectTimerFired)
+        session.handle(.didConnect(name: "D500"))
+        session.handle(.didDiscoverFTMSService(found: true))
+        session.handle(.didDiscoverCharacteristics(indoorBikeData: true, controlPoint: true))
+        session.handle(.didReceiveControlPointResponse(Data([0x80, 0x00, 0x01])))
+
+        XCTAssertEqual(commands.suffix(2), [
+            .write(FTMS.startOrResume()),
+            .write(FTMS.setIndoorBikeSimulation(gradePercent: 3.5)),
+        ])
+    }
+
+    func testNoGradeResentIfNeverSet() {
+        let id = UUID()
+        let (session, _) = connectedSession(id: id)
+
+        var commands: [TrainerSession.Command] = []
+        session.onCommand = { commands.append($0) }
+        session.handle(.didDisconnect(message: "Connection lost."))
+        session.handle(.reconnectTimerFired)
+        session.handle(.didConnect(name: "D500"))
+        session.handle(.didDiscoverFTMSService(found: true))
+        session.handle(.didDiscoverCharacteristics(indoorBikeData: true, controlPoint: true))
+        session.handle(.didReceiveControlPointResponse(Data([0x80, 0x00, 0x01])))
+
+        XCTAssertEqual(commands.last, .write(FTMS.startOrResume()))
+    }
+
+    func testSetGradeWithoutControlEmitsNothingButRecordsGrade() {
+        let session = TrainerSession()
+        var commands: [TrainerSession.Command] = []
+        session.onCommand = { commands.append($0) }
+        let id = UUID()
+        session.connect(id: id, name: "D500")
+        session.handle(.didConnect(name: "D500"))
+        session.handle(.didDiscoverFTMSService(found: true))
+        session.handle(.didDiscoverCharacteristics(indoorBikeData: true, controlPoint: true))
+
+        let countBeforeSetGrade = commands.count
+        session.setGrade(percent: 2.0)
+        XCTAssertEqual(commands.count, countBeforeSetGrade) // hasControl is still false: no write
+
+        session.handle(.didReceiveControlPointResponse(Data([0x80, 0x00, 0x01]))) // control granted
+
+        XCTAssertEqual(commands.last, .write(FTMS.setIndoorBikeSimulation(gradePercent: 2.0)))
+    }
 }

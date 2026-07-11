@@ -131,8 +131,8 @@ public final class TrainerSession {
 
 **Files:** Same.
 
-- [ ] **Step 1:** Failing tests: `testBackoffScheduleIsExponentialCappedAt30s` (drive 8 consecutive failures, assert delays `[1,2,4,8,16,30,30,30]`), `testSuccessfulReconnectRunsFullHandshake`, `testAttemptCounterResetsAfterSuccessfulReconnect` (reconnect, then drop again → next delay is 1 s), `testLastGradeIsResentOnceControlRegained` (setGrade(3.5) while connected → drop → reconnect handshake → assert `.write(FTMS.setIndoorBikeSimulation(gradePercent: 3.5))` right after startOrResume), `testNoGradeResentIfNeverSet`, `testSetGradeWithoutControlEmitsNothingButRecordsGrade`.
-- [ ] **Steps 2-5:** TDD cycle, commit `feat(ble): backoff schedule and grade restore after reconnect`.
+- [x] **Step 1:** Failing tests: `testBackoffScheduleIsExponentialCappedAt30s` (drive 8 consecutive failures, assert delays `[1,2,4,8,16,30,30,30]`), `testSuccessfulReconnectRunsFullHandshake`, `testAttemptCounterResetsAfterSuccessfulReconnect` (reconnect, then drop again → next delay is 1 s), `testLastGradeIsResentOnceControlRegained` (setGrade(3.5) while connected → drop → reconnect handshake → assert `.write(FTMS.setIndoorBikeSimulation(gradePercent: 3.5))` right after startOrResume), `testNoGradeResentIfNeverSet`, `testSetGradeWithoutControlEmitsNothingButRecordsGrade`.
+- [x] **Steps 2-5:** TDD cycle, commit `feat(ble): backoff schedule and grade restore after reconnect`.
 
 ### Task 6: Rewrite TrainerManager as a thin adapter
 
