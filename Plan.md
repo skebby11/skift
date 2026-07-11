@@ -244,7 +244,8 @@ add new ones as they emerge.*
 - [x] ~~Smoothed route gradients~~ (shipped in PR #9)
 - [ ] Ghost rider (race your previous recording — cheap "multiplayer")
 - [ ] ERG mode / structured workouts
-- [ ] Heart-rate strap via BLE HRS (separate sensor pairing)
+- [x] ~~Heart-rate strap via BLE HRS (separate sensor pairing)~~ (promoted
+      into v1 on 2026-07-11 — see docs/hr-strap.md)
 - [ ] iOS/iPadOS/tvOS targets
 - [ ] Real multiplayer (server, presence, drafting) — the big one
 
@@ -261,3 +262,4 @@ add new ones as they emerge.*
 | 2026-07-02 | Stack: Swift + SwiftUI + RealityKit + Core Bluetooth | iPhone/iPad/Apple TV reach and first-class App Store path judged worth the learning curve vs. the web stack (§5) |
 | 2026-07-02 | Ride export: TCX first, FIT later | Plain XML, no binary SDK, Strava imports it; FIT stays on the backlog |
 | 2026-07-11 | Auto-reconnect: infinite exponential backoff (1→30 s cap) | Ride integrity protected by existing auto-pause; BLE logic extracted into pure `TrainerSession` for unit testing |
+| 2026-07-11 | HR strap (BLE HRS) promoted into v1 | Riders own straps and most trainers don't report HR; standard service, small surface (see docs/hr-strap.md) |
