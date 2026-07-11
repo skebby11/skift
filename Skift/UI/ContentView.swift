@@ -77,8 +77,15 @@ struct ContentView: View {
 
     private var ridingScreen: some View {
         VStack(spacing: 0) {
-            RideView(engine: engine)
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
+            ZStack(alignment: .top) {
+                RideView(engine: engine)
+
+                if !isDemoMode, case let .reconnecting(_, attempt) = trainer.state {
+                    reconnectingBadge(attempt: attempt)
+                        .padding(.top, 16)
+                }
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
 
             HStack(spacing: 16) {
                 if isDemoMode {
@@ -106,6 +113,21 @@ struct ContentView: View {
             .foregroundStyle(.white)
             .background(Color(red: 0.035, green: 0.055, blue: 0.08))
         }
+    }
+
+    // Matches RideView's HUD panel style (dark panel, orange accent) so it
+    // reads as part of the same HUD rather than a separate alert.
+    private func reconnectingBadge(attempt: Int) -> some View {
+        Label("Reconnecting… (attempt \(attempt))", systemImage: "wifi.exclamationmark")
+            .font(.callout.bold())
+            .foregroundStyle(.orange)
+            .padding(.horizontal, 14)
+            .padding(.vertical, 8)
+            .background(.black.opacity(0.68), in: Capsule())
+            .overlay {
+                Capsule().stroke(.white.opacity(0.12), lineWidth: 1)
+            }
+            .shadow(color: .black.opacity(0.22), radius: 10, y: 4)
     }
 
     // MARK: - Flow actions

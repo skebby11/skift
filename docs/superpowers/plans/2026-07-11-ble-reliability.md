@@ -146,9 +146,9 @@ public final class TrainerSession {
 
 **Files:** Modify `Skift/UI/PairingView.swift` (render `.reconnecting` like `.connecting`, with attempt count), `Skift/UI/ContentView.swift` (in the `.riding` phase, overlay a small "Reconnecting…" badge when `!isDemoMode`, matching the HUD style in `RideView.swift` — dark panel, orange accent, top-center).
 
-- [ ] **Step 1:** Implement (SwiftUI views have no test target; keep the diff minimal and switch-exhaustive).
-- [ ] **Step 2:** Build app target; expected: compiles, no warnings introduced.
-- [ ] **Step 3:** Commit `feat(ui): show reconnecting state during pairing and mid-ride`.
+- [x] **Step 1:** Implement (SwiftUI views have no test target; keep the diff minimal and switch-exhaustive).
+- [x] **Step 2:** Build app target; expected: compiles, no warnings introduced.
+- [x] **Step 3:** Commit `feat(ui): show reconnecting state during pairing and mid-ride`.
 
 ### Task 8: Docs + full verification
 
