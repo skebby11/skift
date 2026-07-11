@@ -100,11 +100,11 @@ public final class TrainerSession {
 
 **Files:** Create `SkiftKit/TrainerSession.swift`, `SkiftKitTests/TrainerSessionTests.swift`.
 
-- [ ] **Step 1:** Write failing test `testHappyPathHandshakeEmitsExpectedCommandSequence` — helper records commands into `[Command]`; drive `startScan()` → `didDiscover` → `connect(id:name:)` → `didConnect` → `didDiscoverFTMSService(found: true)` → `didDiscoverCharacteristics(true, true)` → `didReceiveControlPointResponse(<success payload for requestControl>)`; assert the exact command array per rule 1 and final `state == .connected(name:)`, `hasControl == true`. Build the success payload with the same byte layout `FTMSTests` uses (`[0x80, 0x00, 0x01]`).
-- [ ] **Step 2:** Run it; expected: FAIL (type doesn't exist). Use the CI xcodebuild invocation filtered to this test.
-- [ ] **Step 3:** Implement the minimal state machine to pass (no reconnect logic yet).
-- [ ] **Step 4:** Run; expected: PASS. Run the whole `SkiftKitTests` bundle too — nothing else may break.
-- [ ] **Step 5:** Commit `feat(ble): TrainerSession pure state machine — happy-path handshake`.
+- [x] **Step 1:** Write failing test `testHappyPathHandshakeEmitsExpectedCommandSequence` — helper records commands into `[Command]`; drive `startScan()` → `didDiscover` → `connect(id:name:)` → `didConnect` → `didDiscoverFTMSService(found: true)` → `didDiscoverCharacteristics(true, true)` → `didReceiveControlPointResponse(<success payload for requestControl>)`; assert the exact command array per rule 1 and final `state == .connected(name:)`, `hasControl == true`. Build the success payload with the same byte layout `FTMSTests` uses (`[0x80, 0x00, 0x01]`).
+- [x] **Step 2:** Run it; expected: FAIL (type doesn't exist). Use the CI xcodebuild invocation filtered to this test.
+- [x] **Step 3:** Implement the minimal state machine to pass (no reconnect logic yet).
+- [x] **Step 4:** Run; expected: PASS. Run the whole `SkiftKitTests` bundle too — nothing else may break.
+- [x] **Step 5:** Commit `feat(ble): TrainerSession pure state machine — happy-path handshake`.
 
 ### Task 2: Discovery list, live data, scan/stop semantics
 
