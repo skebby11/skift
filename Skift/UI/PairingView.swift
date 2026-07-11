@@ -88,6 +88,14 @@ struct PairingView: View {
                 Text("Connecting…")
             }
 
+        case .reconnecting:
+            // Cosmetic attempt-count polish lands separately; this keeps the
+            // switch exhaustive for the new session state.
+            HStack(spacing: 8) {
+                ProgressView().controlSize(.small)
+                Text("Connecting…")
+            }
+
         case .connected(let name):
             HStack {
                 Label(name, systemImage: "bicycle")
