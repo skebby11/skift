@@ -11,12 +11,19 @@ enum RiderSettings {
     /// Remembered heart-rate strap (UUID string), set on successful connect
     /// and cleared on user disconnect — see PairingView's HR section.
     static let hrStrapIDKey = "hrStrapID"
+    /// The user's own Strava API application client ID (public, so
+    /// `@AppStorage` is fine — the client secret and OAuth tokens live in
+    /// the Keychain instead, see `StravaAccount` and docs/strava-upload.md).
+    static let stravaClientIDKey = "stravaClientID"
+    /// Upload completed rides to Strava automatically, without a tap.
+    static let stravaAutoUploadKey = "stravaAutoUpload"
 
     static let defaultRiderKg = 75.0
     static let defaultBikeKg = 8.0
     static let defaultTrainerDifficulty = 0.5
     /// Functional Threshold Power — drives the HUD's power-zone chip.
     static let defaultFTP = 200.0
+    static let defaultStravaAutoUpload = false
 }
 
 /// The standard macOS Settings window (⌘,).
