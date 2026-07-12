@@ -73,3 +73,18 @@ Adapter stays hardware-verified only, like `TrainerManager`.
 REVIEW (hardware session): pending-connection behavior when the strap
 power-cycles; whether popular straps advertise `0x180D` while already
 connected to a watch (Garmin dual-channel vs. Polar single-channel).
+
+## Discoverability
+
+Pairing a strap lived only in `PairingView`'s collapsed disclosure — but two
+flows never see that screen: menu "Ride" jumps straight to `RideSetupView`
+when the trainer already has control, and demo mode leaves pairing the
+moment "Try without a trainer" is tapped. Both left the strap unreachable.
+Fixed by extracting the scan/list/connect/live-bpm/disconnect UI into a
+shared `HeartRatePicker` component (`Skift/UI/HeartRatePicker.swift`) used by
+both screens: `PairingView`'s "Heart rate (optional)" section (now expanded
+by default — collapsed was too hidden) and a new compact HR box in
+`RideSetupView`, between the route info and "Start ride". Each screen
+independently reconnects a remembered strap on its own `onAppear`, guarded
+to the monitor's `.idle` state so the two screens never double-connect.
+Start/Continue never depend on HR, on either screen.
