@@ -98,6 +98,20 @@ struct ContentView: View {
                 endRide()
             }
         }
+        // Screenshot/dev shortcut: `Skift.app --args -SkiftDemoRide` boots
+        // straight into a demo free ride (used for README/docs captures and
+        // automated visual checks — no BLE, no clicking through the flow).
+        .onAppear {
+            if ProcessInfo.processInfo.arguments.contains("-SkiftDemoRide"), phase == .menu {
+                // Deferred: mutating @State inside the first render pass
+                // can be silently dropped.
+                DispatchQueue.main.async {
+                    isDemoMode = true
+                    demoPower.watts = 400
+                    startRide(targetMeters: nil)
+                }
+            }
+        }
     }
 
     // MARK: - Riding screen
