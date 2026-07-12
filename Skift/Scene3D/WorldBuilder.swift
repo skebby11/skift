@@ -38,7 +38,7 @@ enum WorldBuilder {
         root.addChild(centralMountain(layout: layout))
         root.addChild(try distantHorizon(layout: layout))
         root.addChild(rocks(layout: layout))
-        root.addChild(makeTrees(layout: layout))
+        root.addChild(try RoadsideDressing.make(layout: layout))
 
         let sun = DirectionalLight()
         sun.light.color = WorldPalette.sun
@@ -401,59 +401,6 @@ enum WorldBuilder {
         avatar.addChild(head)
 
         return AvatarRig(root: avatar, wheels: wheels, pedals: pedals)
-    }
-
-    // MARK: - Scenery
-
-    /// Low-poly trees (cylinder trunk + cone crown) placed deterministically
-    /// along the road, alternating sides. Deterministic (no randomness) so
-    /// every run and every test sees the same world.
-    private static func makeTrees(layout: TrackLayout) -> Entity {
-        let container = Entity()
-        let trunkMaterial = matteMaterial(WorldPalette.trunk)
-        let crownMaterial = matteMaterial(WorldPalette.crown)
-
-        // One tree every ~140 m; cheap enough (~60 entities) and enough to
-        // give the rider a sense of speed. REVIEW: density and placement.
-        let spacing = 140.0
-        var index = 0
-        var distance = 0.0
-        while distance < layout.route.lengthMeters {
-            let side: Float = index % 2 == 0 ? 1 : -1
-            let lateralOffset = side * Float(10 + (index * 7) % 12) // 10–21 m off the road
-            let center = layout.position(atMeters: distance)
-            let tangent = layout.tangent(atMeters: distance)
-            let sideDir = simd_normalize(simd_cross(SIMD3<Float>(0, 1, 0), tangent))
-
-            // Box trunk + squashed-sphere crown: generateCylinder/generateCone
-            // are macOS 15+ only, and the deployment target is macOS 14.
-            let tree = Entity()
-            let trunk = ModelEntity(
-                mesh: .generateBox(size: SIMD3<Float>(0.35, 2.2, 0.35)),
-                materials: [trunkMaterial]
-            )
-            trunk.position.y = 1.1
-            tree.addChild(trunk)
-
-            let crown = ModelEntity(
-                mesh: .generateSphere(radius: 1.5),
-                materials: [crownMaterial]
-            )
-            crown.scale = SIMD3(1, 1.3, 1)
-            crown.position.y = 3.3
-            tree.addChild(crown)
-
-            // Vary the size deterministically so the forest doesn't look
-            // copy-pasted; drop on the grass ribbon, slightly below the road.
-            let scale = 0.8 + Float((index * 5) % 7) / 10
-            tree.scale = SIMD3(repeating: scale)
-            tree.position = center + sideDir * lateralOffset + SIMD3(0, -0.5, 0)
-            container.addChild(tree)
-
-            index += 1
-            distance += spacing
-        }
-        return container
     }
 
     // MARK: - Mesh generation

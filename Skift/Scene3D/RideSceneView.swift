@@ -75,6 +75,41 @@ struct RideSceneView: NSViewRepresentable {
         coordinator.updateSubscription = arView.scene.subscribe(to: SceneEvents.Update.self) { [weak coordinator] event in
             coordinator?.stepFrame(dt: event.deltaTime)
         }
+
+        // Dev/screenshot hook (pairs with ContentView's -SkiftDemoRide):
+        // `-SkiftSnapshot <basePath>` writes PNGs of the scene at fixed ride
+        // distances — used for README captures and automated visual checks,
+        // since sandboxed shells can't screencapture.
+        let arguments = ProcessInfo.processInfo.arguments
+        if let flagIndex = arguments.firstIndex(of: "-SkiftSnapshot"), flagIndex + 1 < arguments.count {
+            let base = URL(fileURLWithPath: arguments[flagIndex + 1])
+            var pending: [(meters: Double, suffix: String)] = [
+                (500, "-500m"), (1_020, "-viale"), (1_820, "-vineyard"),
+            ]
+            Timer.scheduledTimer(withTimeInterval: 2, repeats: true) { [weak arView, weak coordinator] timer in
+                guard let arView, let coordinator else {
+                    timer.invalidate()
+                    return
+                }
+                guard let next = pending.first, coordinator.displayDistance >= next.meters else { return }
+                pending.removeFirst()
+                if pending.isEmpty { timer.invalidate() }
+                let out = URL(fileURLWithPath: base.deletingPathExtension().path + next.suffix + ".png")
+                arView.snapshot(saveToHDR: false) { image in
+                    guard let image,
+                          let tiff = image.tiffRepresentation,
+                          let bitmap = NSBitmapImageRep(data: tiff),
+                          let png = bitmap.representation(using: .png, properties: [:]) else { return }
+                    // Unsigned dev builds aren't sandboxed; fall back to the
+                    // temp dir when the requested location is unwritable.
+                    if (try? png.write(to: out)) == nil {
+                        let fallback = URL(fileURLWithPath: NSTemporaryDirectory())
+                            .appendingPathComponent(out.lastPathComponent)
+                        try? png.write(to: fallback)
+                    }
+                }
+            }
+        }
         return arView
     }
 
