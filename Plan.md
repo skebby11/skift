@@ -224,6 +224,7 @@ add new ones as they emerge.*
   - [ ] Export TCX; upload to Strava succeeds
   - [ ] With a HR strap (Garmin/Polar): pair, live bpm on HUD, bpm in exported TCX
   - [ ] Ride history: completed ride appears, re-exported TCX matches, delete works
+  - [ ] Strava: connect, upload a ride, activity appears as VirtualRide
 - [ ] **Fix whatever the validation session finds** (expect BLE quirks and
   rough 3D — that's the point of the session)
 - [ ] **Art pass** (needs the screenshot + direction): reshape track control
@@ -267,3 +268,4 @@ add new ones as they emerge.*
 | 2026-07-11 | Auto-reconnect: infinite exponential backoff (1→30 s cap) | Ride integrity protected by existing auto-pause; BLE logic extracted into pure `TrainerSession` for unit testing |
 | 2026-07-11 | HR strap (BLE HRS) promoted into v1 | Riders own straps and most trainers don't report HR; standard service, small surface (see docs/hr-strap.md) |
 | 2026-07-12 | Ride history: local JSON store (one file per ride) | Full samples kept so TCX re-export matches the original; corrupt files skipped, never fatal (see docs/ride-history.md) |
+| 2026-07-12 | Strava: direct upload via user-supplied API app | OSS can't ship a client secret; BYO credentials + OAuth loopback callback (see docs/strava-upload.md) |

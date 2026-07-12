@@ -2,16 +2,21 @@ import SwiftUI
 import SkiftKit
 import UniformTypeIdentifiers
 
-/// Browse past rides: newest first, re-export any ride to TCX, or delete it.
-/// Loads from `RideStore` on appear; deleting refreshes the list
-/// (docs/ride-history.md).
+/// Browse past rides: newest first, re-export any ride to TCX, upload it to
+/// Strava (when connected), or delete it. Loads from `RideStore` on appear;
+/// deleting or uploading refreshes the list (docs/ride-history.md,
+/// docs/strava-upload.md).
 struct HistoryView: View {
     let rideStore: RideStore
+    @ObservedObject var strava: StravaAccount
     let onBack: () -> Void
 
     @State private var rides: [StoredRide] = []
     @State private var statusMessage: String?
     @State private var pendingDelete: StoredRide?
+    /// The ride currently uploading, nil when none — one at a time keeps
+    /// the UI (and Strava's rate limits) simple.
+    @State private var uploadingRideID: UUID?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 20) {
@@ -73,6 +78,7 @@ struct HistoryView: View {
                     .foregroundStyle(.secondary)
             }
             Spacer()
+            stravaControl(ride)
             Button("Export TCX…") { export(ride) }
             Button(role: .destructive) {
                 pendingDelete = ride
@@ -81,6 +87,28 @@ struct HistoryView: View {
             }
         }
         .padding(.vertical, 10)
+    }
+
+    /// Per-row Strava state: an "On Strava" badge linking to the activity
+    /// once uploaded; otherwise an upload button when an account is
+    /// connected (docs/strava-upload.md).
+    @ViewBuilder
+    private func stravaControl(_ ride: StoredRide) -> some View {
+        if let activityID = ride.stravaActivityID {
+            Link(destination: URL(string: "https://www.strava.com/activities/\(activityID)")!) {
+                Label("On Strava", systemImage: "checkmark.circle.fill")
+                    .font(.caption)
+            }
+            .foregroundStyle(.green)
+        } else if strava.isConnected {
+            if uploadingRideID == ride.id {
+                ProgressView()
+                    .controlSize(.small)
+            } else {
+                Button("Upload to Strava") { upload(ride) }
+                    .disabled(uploadingRideID != nil)
+            }
+        }
     }
 
     // MARK: - Store operations
@@ -104,14 +132,41 @@ struct HistoryView: View {
         }
     }
 
-    /// Writes the TCX file where the user chooses, mirroring
-    /// RideSummaryView's export flow. Rebuilds a recorder from the stored
-    /// samples so re-export produces exactly what the post-ride export would.
-    private func export(_ ride: StoredRide) {
+    /// Uploads a stored ride to Strava, records the activity id, and
+    /// reloads so the row flips to its "On Strava" badge. Errors surface in
+    /// the status line and never block the list (docs/strava-upload.md).
+    private func upload(_ ride: StoredRide) {
+        guard let tcx = tcxDocument(for: ride) else { return }
+        uploadingRideID = ride.id
+        statusMessage = nil
+        Task {
+            do {
+                let activityID = try await strava.upload(
+                    tcxData: Data(tcx.utf8),
+                    name: "Skift virtual ride"
+                )
+                try? rideStore.markUploaded(id: ride.id, activityID: activityID)
+                load()
+            } catch {
+                statusMessage = "Upload failed: \(error.localizedDescription)"
+            }
+            uploadingRideID = nil
+        }
+    }
+
+    /// Rebuilds a recorder from the stored samples so exports and uploads
+    /// produce exactly what the post-ride export would.
+    private func tcxDocument(for ride: StoredRide) -> String? {
         let recorder = RideRecorder()
         recorder.begin(at: ride.startDate)
         ride.samples.forEach(recorder.append)
-        guard let tcx = TCXExporter.export(recorder: recorder) else { return }
+        return TCXExporter.export(recorder: recorder)
+    }
+
+    /// Writes the TCX file where the user chooses, mirroring
+    /// RideSummaryView's export flow.
+    private func export(_ ride: StoredRide) {
+        guard let tcx = tcxDocument(for: ride) else { return }
 
         let panel = NSSavePanel()
         panel.allowedContentTypes = [UTType(filenameExtension: "tcx") ?? .xml]
@@ -148,6 +203,6 @@ struct HistoryView: View {
 }
 
 #Preview {
-    HistoryView(rideStore: RideStore(), onBack: {})
+    HistoryView(rideStore: RideStore(), strava: StravaAccount(), onBack: {})
         .frame(width: 760, height: 620)
 }

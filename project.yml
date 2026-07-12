@@ -29,6 +29,10 @@ targets:
       properties:
         com.apple.security.app-sandbox: true
         com.apple.security.device.bluetooth: true
+        # Strava upload: outgoing HTTPS (API calls) + the loopback OAuth
+        # callback listener (docs/strava-upload.md).
+        com.apple.security.network.client: true
+        com.apple.security.network.server: true
 
   SkiftKit:
     type: framework
