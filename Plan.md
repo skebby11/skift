@@ -221,6 +221,7 @@ add new ones as they emerge.*
         speeds believable vs. Zwift at the same watts
   - [ ] Log a few raw Indoor Bike Data payloads (which fields does the D500 send?)
   - [ ] Target ride (5 km) auto-completes into the summary
+  - [ ] ERG: builder workout runs, resistance follows targets, ±5W and skip work
   - [ ] Export TCX; upload to Strava succeeds
   - [ ] With a HR strap (Garmin/Polar): pair, live bpm on HUD, bpm in exported TCX
   - [ ] Ride history: completed ride appears, re-exported TCX matches, delete works
@@ -247,7 +248,8 @@ add new ones as they emerge.*
       2026-07-12 — see docs/ride-history.md)
 - [x] ~~Smoothed route gradients~~ (shipped in PR #9)
 - [ ] Ghost rider (race your previous recording — cheap "multiplayer")
-- [ ] ERG mode / structured workouts
+- [x] ~~ERG mode / structured workouts~~ (v1 slice in progress 2026-07-12:
+      simple ERG + interval builder — see docs/erg-mode.md; .zwo import stays here)
 - [x] ~~Heart-rate strap via BLE HRS (separate sensor pairing)~~ (promoted
       into v1 on 2026-07-11 — see docs/hr-strap.md)
 - [ ] iOS/iPadOS/tvOS targets
@@ -269,3 +271,4 @@ add new ones as they emerge.*
 | 2026-07-11 | HR strap (BLE HRS) promoted into v1 | Riders own straps and most trainers don't report HR; standard service, small surface (see docs/hr-strap.md) |
 | 2026-07-12 | Ride history: local JSON store (one file per ride) | Full samples kept so TCX re-export matches the original; corrupt files skipped, never fatal (see docs/ride-history.md) |
 | 2026-07-12 | Strava: direct upload via user-supplied API app | OSS can't ship a client secret; BYO credentials + OAuth loopback callback (see docs/strava-upload.md) |
+| 2026-07-12 | ERG v1: absolute-watt steps, builder-only | Warmup/repeats/cooldown covers FTP tests and repeats; %FTP steps and .zwo import deferred (see docs/erg-mode.md) |

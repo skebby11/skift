@@ -97,6 +97,12 @@ public final class TrainerManager: NSObject, ObservableObject {
         syncFromSession()
     }
 
+    /// Sends a power target to the trainer via FTMS ERG mode.
+    public func setTargetPower(watts: Int) {
+        session.setTargetPower(watts: watts)
+        syncFromSession()
+    }
+
     // MARK: - Command execution (session → CoreBluetooth)
 
     private func execute(_ command: TrainerSession.Command) {

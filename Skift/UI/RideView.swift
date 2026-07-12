@@ -20,7 +20,12 @@ struct RideView: View {
 
             VStack(spacing: 12) {
                 HStack(alignment: .top, spacing: 12) {
-                    powerPanel
+                    // ERG panel sits right under the power panel so target
+                    // and actual watts read as one column (docs/erg-mode.md).
+                    VStack(alignment: .leading, spacing: 12) {
+                        powerPanel
+                        ergPanel
+                    }
                     journeyPanel
                     Spacer(minLength: 12)
                     routePanel
@@ -76,6 +81,74 @@ struct RideView: View {
             .font(.caption.bold())
         }
         .hudPanel()
+    }
+
+    /// ERG panel, shown only during workout rides (`workoutState` is nil in
+    /// SIM mode): the target the trainer is holding, the current step and its
+    /// countdown, the next step, and the ±5 W / Skip controls — the classic
+    /// head-unit workout strip (docs/erg-mode.md).
+    @ViewBuilder
+    private var ergPanel: some View {
+        if let state = engine.workoutState {
+            VStack(alignment: .leading, spacing: 7) {
+                HStack {
+                    Text("TARGET").hudLabel()
+                    Spacer()
+                    Text(state.currentStep.label.uppercased())
+                        .font(.system(size: 10, weight: .bold, design: .rounded))
+                        .tracking(1.1)
+                        .foregroundStyle(.orange)
+                }
+                HStack(alignment: .firstTextBaseline, spacing: 4) {
+                    Text("\(state.currentStep.targetWatts)")
+                        .font(.system(size: 38, weight: .heavy, design: .rounded))
+                        .monospacedDigit()
+                        .foregroundStyle(.orange)
+                    Text("W")
+                        .font(.title3.bold())
+                        .foregroundStyle(.white.opacity(0.7))
+                    Spacer(minLength: 16)
+                    Text(formatCountdown(state.secondsLeftInStep))
+                        .font(.system(size: 25, weight: .bold, design: .rounded))
+                        .monospacedDigit()
+                        .foregroundStyle(.white)
+                }
+                Text(nextStepLine(state))
+                    .font(.caption)
+                    .monospacedDigit()
+                    .foregroundStyle(.white.opacity(0.7))
+                HStack(spacing: 8) {
+                    ergButton("−5 W") { engine.adjustWorkoutWatts(by: -5) }
+                    ergButton("+5 W") { engine.adjustWorkoutWatts(by: 5) }
+                    Spacer()
+                    ergButton("Skip") { engine.skipWorkoutStep() }
+                }
+            }
+            .hudPanel()
+            .frame(maxWidth: 210)
+        }
+    }
+
+    private func ergButton(_ label: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Text(label)
+                .font(.caption.bold())
+                .monospacedDigit()
+        }
+        .buttonStyle(.bordered)
+        .tint(.orange)
+    }
+
+    /// mm:ss left in the current step, rounded up so a fresh 3-minute step
+    /// reads 3:00, not 2:59.
+    private func formatCountdown(_ seconds: Double) -> String {
+        let total = max(0, Int(seconds.rounded(.up)))
+        return String(format: "%d:%02d", total / 60, total % 60)
+    }
+
+    private func nextStepLine(_ state: TrackerState) -> String {
+        guard let next = state.nextStep else { return "Last step" }
+        return "Next: \(next.label) · \(next.targetWatts) W"
     }
 
     private var journeyPanel: some View {

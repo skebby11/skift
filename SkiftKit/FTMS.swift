@@ -104,6 +104,7 @@ public enum FTMS {
     public enum OpCode: UInt8 {
         case requestControl = 0x00
         case reset = 0x01
+        case setTargetPower = 0x05
         case startOrResume = 0x07
         case stopOrPause = 0x08
         case setIndoorBikeSimulation = 0x11
@@ -141,6 +142,16 @@ public enum FTMS {
         data.appendLittleEndian(Int16(clamping: Int((gradePercent * 100).rounded())))
         data.append(UInt8(clamping: Int((crr * 10000).rounded())))
         data.append(UInt8(clamping: Int((windResistanceKgM * 100).rounded())))
+        return data
+    }
+
+    /// Builds a "Set Target Power" command — the ERG-mode message that makes
+    /// the trainer hold a constant power regardless of cadence.
+    ///
+    /// - Parameter watts: target power, clamped to 0…2000 W (resolution 1 W).
+    public static func setTargetPower(watts: Int) -> Data {
+        var data = Data([OpCode.setTargetPower.rawValue])
+        data.appendLittleEndian(Int16(clamping: max(0, min(watts, 2000))))
         return data
     }
 
