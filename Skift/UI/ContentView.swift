@@ -18,9 +18,11 @@ struct ContentView: View {
     @StateObject private var hrMonitor = HeartRateMonitor()
     @StateObject private var engine = RideEngine(route: .island)
     @StateObject private var demoPower = DemoPowerSource()
+    private let rideStore = RideStore()
 
     @State private var phase: GamePhase = .menu
     @State private var isDemoMode = false
+    @State private var saveError: String?
 
     // Rider settings (editable in the Settings window, applied at ride start).
     @AppStorage(RiderSettings.riderKgKey)
@@ -60,7 +62,7 @@ struct ContentView: View {
             case .riding:
                 ridingScreen
             case .summary:
-                RideSummaryView(recorder: engine.recorder) {
+                RideSummaryView(recorder: engine.recorder, saveError: saveError) {
                     phase = .menu
                 }
             }
@@ -151,6 +153,7 @@ struct ContentView: View {
             return data
         }
 
+        saveError = nil
         engine.start(
             dataSource: dataSource,
             control: isDemoMode ? nil : trainer,
@@ -160,12 +163,33 @@ struct ContentView: View {
         phase = .riding
     }
 
+    /// Stops the ride, saves it, and shows the summary. Reached from two
+    /// places — the "End ride" button and the auto-completion `onChange`
+    /// below — so it must be idempotent: the `phase == .riding` guard makes
+    /// a second call (e.g. the button tapped the same instant the ride
+    /// auto-completes) a no-op, guaranteeing the ride is saved exactly once.
     private func endRide() {
+        guard phase == .riding else { return }
         engine.stop()
         if !isDemoMode {
             trainer.setGrade(percent: 0) // release the resistance
         }
+        // Best-effort: a save failure is surfaced in the summary sheet but
+        // never blocks showing it (docs/ride-history.md).
+        saveError = saveCompletedRide()
         phase = .summary
+    }
+
+    private func saveCompletedRide() -> String? {
+        do {
+            try rideStore.save(recorder: engine.recorder)
+            return nil
+        } catch RideStoreError.nothingToSave {
+            // Ride was too short to summarize — nothing to persist, not a failure.
+            return nil
+        } catch {
+            return "Couldn't save this ride to History: \(error.localizedDescription)"
+        }
     }
 }
 
