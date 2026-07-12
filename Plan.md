@@ -241,7 +241,8 @@ add new ones as they emerge.*
       like Flaticon/Icons8 require attribution and clash with Apache-2.0 redistribution)
 - [ ] Trainer test matrix beyond the D500 (Wahoo, Tacx, Elite via community)
 - [ ] FIT export (Strava-native format; TCX ships first)
-- [ ] Ride history persistence in-app
+- [x] ~~Ride history persistence in-app~~ (promoted into v1.x on
+      2026-07-12 — see docs/ride-history.md)
 - [x] ~~Smoothed route gradients~~ (shipped in PR #9)
 - [ ] Ghost rider (race your previous recording — cheap "multiplayer")
 - [ ] ERG mode / structured workouts
@@ -264,3 +265,4 @@ add new ones as they emerge.*
 | 2026-07-02 | Ride export: TCX first, FIT later | Plain XML, no binary SDK, Strava imports it; FIT stays on the backlog |
 | 2026-07-11 | Auto-reconnect: infinite exponential backoff (1→30 s cap) | Ride integrity protected by existing auto-pause; BLE logic extracted into pure `TrainerSession` for unit testing |
 | 2026-07-11 | HR strap (BLE HRS) promoted into v1 | Riders own straps and most trainers don't report HR; standard service, small surface (see docs/hr-strap.md) |
+| 2026-07-12 | Ride history: local JSON store (one file per ride) | Full samples kept so TCX re-export matches the original; corrupt files skipped, never fatal (see docs/ride-history.md) |
