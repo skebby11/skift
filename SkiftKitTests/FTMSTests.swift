@@ -211,6 +211,28 @@ final class FTMSTests: XCTestCase {
         XCTAssertEqual(command[6], 0xFF) // Cw clamped to UInt8 max
     }
 
+    // MARK: - Set Target Power encoding
+
+    func testEncodesSetTargetPower() {
+        let command = FTMS.setTargetPower(watts: 220)
+        XCTAssertEqual(command, Data([0x05, 0xDC, 0x00])) // 220 → 0x00DC LE
+    }
+
+    func testSetTargetPowerClampsToUpperBound() {
+        let command = FTMS.setTargetPower(watts: 5000)
+        XCTAssertEqual(command, Data([0x05, 0xD0, 0x07])) // clamped to 2000 → 0x07D0 LE
+    }
+
+    func testSetTargetPowerClampsToLowerBound() {
+        let command = FTMS.setTargetPower(watts: -500)
+        XCTAssertEqual(command, Data([0x05, 0x00, 0x00])) // clamped to 0
+    }
+
+    func testSetTargetPowerRejectsNegativeInputButDoesNotUnderflow() {
+        let command = FTMS.setTargetPower(watts: -1)
+        XCTAssertEqual(command, Data([0x05, 0x00, 0x00]))
+    }
+
     // MARK: - Control Point responses
 
     func testParsesSuccessResponse() {
