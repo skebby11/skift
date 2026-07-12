@@ -21,6 +21,12 @@ permissions:
 jobs:
   release:
     runs-on: macos-15
+    # Job-level env: step-level `env:` is not in scope for that same step's
+    # `if:` condition, so the notarization guard must read job-level values.
+    env:
+      APPLE_ID: ${{ secrets.APPLE_ID }}
+      APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+      APPLE_APP_PASSWORD: ${{ secrets.APPLE_APP_PASSWORD }}
     steps:
       - uses: actions/checkout@v4
 
@@ -56,8 +62,10 @@ jobs:
 
       - name: Build .dmg
         id: build_dmg
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
         run: |
-          DMG_PATH=$(scripts/release.sh "${{ steps.version.outputs.version }}" | tail -1)
+          DMG_PATH=$(scripts/release.sh "$VERSION" | tail -1)
           echo "dmg_path=$DMG_PATH" >> "$GITHUB_OUTPUT"
 
       # REVIEW: enable real notarization once a paid Apple Developer ID
@@ -67,10 +75,6 @@ jobs:
       # ad-hoc signature in scripts/release.sh is what ships.
       - name: Notarize (stub)
         if: ${{ env.APPLE_ID != '' && env.APPLE_TEAM_ID != '' && env.APPLE_APP_PASSWORD != '' }}
-        env:
-          APPLE_ID: ${{ secrets.APPLE_ID }}
-          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
-          APPLE_APP_PASSWORD: ${{ secrets.APPLE_APP_PASSWORD }}
         run: echo "Notarization secrets present but notarization is not implemented yet — skipping."
 
       - name: Create draft GitHub Release
