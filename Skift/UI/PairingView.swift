@@ -5,9 +5,21 @@ import SkiftKit
 /// SIM control ("Continue") or into demo mode (no hardware needed).
 struct PairingView: View {
     @ObservedObject var trainer: TrainerManager
+    @ObservedObject var hrMonitor: HeartRateMonitor
     let onReady: () -> Void
     let onDemo: () -> Void
     let onBack: () -> Void
+
+    // Collapsed by default: pairing a strap is optional and must never
+    // block or distract from getting the trainer connected.
+    @State private var isHRSectionExpanded = false
+    // The strap this screen is trying to connect, remembered so a
+    // successful connect can be persisted under the right id (state only
+    // carries the resolved name, not the id).
+    @State private var pendingHRStrapID: UUID?
+
+    @AppStorage(RiderSettings.hrStrapIDKey)
+    private var hrStrapID: String?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 20) {
@@ -27,6 +39,11 @@ struct PairingView: View {
                     .foregroundStyle(.red)
             }
 
+            DisclosureGroup("Heart rate (optional)", isExpanded: $isHRSectionExpanded) {
+                heartRateSection
+                    .padding(.top, 8)
+            }
+
             Spacer()
 
             // Escape hatch: the game is fully playable without hardware —
@@ -42,6 +59,18 @@ struct PairingView: View {
             }
         }
         .padding(28)
+        .onAppear {
+            // Silently reconnect to a remembered strap; never blocks Continue.
+            if case .idle = hrMonitor.state, let stored = hrStrapID, let id = UUID(uuidString: stored) {
+                pendingHRStrapID = id
+                hrMonitor.connectRemembered(id: id)
+            }
+        }
+        .onChange(of: hrMonitor.state) { _, newState in
+            if case .connected = newState, let id = pendingHRStrapID {
+                hrStrapID = id.uuidString
+            }
+        }
     }
 
     // MARK: - Connection states
@@ -116,6 +145,90 @@ struct PairingView: View {
         }
     }
 
+    // MARK: - Heart rate (optional)
+
+    @ViewBuilder
+    private var heartRateSection: some View {
+        switch hrMonitor.state {
+        case .bluetoothUnavailable(let reason):
+            Label(reason, systemImage: "exclamationmark.triangle")
+                .foregroundStyle(.orange)
+
+        case .idle:
+            Button("Scan for heart rate straps", systemImage: "antenna.radiowaves.left.and.right") {
+                hrMonitor.startScan()
+            }
+            hrDeviceList
+
+        case .scanning:
+            HStack(spacing: 8) {
+                ProgressView().controlSize(.small)
+                Text("Scanning for heart rate straps…")
+                Spacer()
+                Button("Stop") { hrMonitor.stopScan() }
+            }
+            hrDeviceList
+
+        case .connecting:
+            HStack(spacing: 8) {
+                ProgressView().controlSize(.small)
+                Text("Connecting…")
+            }
+
+        case .reconnecting(let name):
+            HStack(spacing: 8) {
+                ProgressView().controlSize(.small)
+                Text("Reconnecting to \(name)…")
+            }
+
+        case .connected(let name):
+            VStack(alignment: .leading, spacing: 8) {
+                HStack {
+                    Label(name, systemImage: "heart.fill")
+                        .font(.headline)
+                        .foregroundStyle(.red)
+                    Spacer()
+                    Button("Disconnect") {
+                        hrMonitor.disconnect()
+                        hrStrapID = nil
+                    }
+                }
+                if let bpm = hrMonitor.bpm {
+                    HStack(alignment: .firstTextBaseline, spacing: 4) {
+                        Text("\(bpm)")
+                            .font(.system(size: 26, weight: .semibold, design: .rounded))
+                            .monospacedDigit()
+                        Text("bpm")
+                            .font(.callout)
+                            .foregroundStyle(.secondary)
+                    }
+                } else {
+                    Text("Waiting for a reading…")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var hrDeviceList: some View {
+        ForEach(hrMonitor.discovered) { sensor in
+            HStack {
+                Text(sensor.name)
+                Text("\(sensor.rssi) dBm")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                Spacer()
+                Button("Connect") {
+                    pendingHRStrapID = sensor.id
+                    hrMonitor.connect(sensor)
+                }
+            }
+            .padding(.vertical, 2)
+        }
+    }
+
     @ViewBuilder
     private var deviceList: some View {
         ForEach(trainer.discovered) { device in
@@ -161,6 +274,6 @@ struct PairingView: View {
 }
 
 #Preview {
-    PairingView(trainer: TrainerManager(), onReady: {}, onDemo: {}, onBack: {})
+    PairingView(trainer: TrainerManager(), hrMonitor: HeartRateMonitor(), onReady: {}, onDemo: {}, onBack: {})
         .frame(width: 760, height: 620)
 }

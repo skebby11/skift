@@ -15,6 +15,7 @@ enum GamePhase {
 /// game flow. Each screen is its own view; this file only does wiring.
 struct ContentView: View {
     @StateObject private var trainer = TrainerManager()
+    @StateObject private var hrMonitor = HeartRateMonitor()
     @StateObject private var engine = RideEngine(route: .island)
     @StateObject private var demoPower = DemoPowerSource()
 
@@ -41,6 +42,7 @@ struct ContentView: View {
             case .pairing:
                 PairingView(
                     trainer: trainer,
+                    hrMonitor: hrMonitor,
                     onReady: { phase = .rideSetup },
                     onDemo: {
                         isDemoMode = true
@@ -137,9 +139,17 @@ struct ContentView: View {
 
         // Demo and real rides go through the same engine API: only the data
         // source and the control sink differ (see docs/game-flow.md).
-        let dataSource: () -> FTMS.IndoorBikeData = isDemoMode
+        let baseSource: () -> FTMS.IndoorBikeData = isDemoMode
             ? { [demoPower] in demoPower.currentData() }
             : { [weak trainer] in trainer?.liveData ?? FTMS.IndoorBikeData() }
+        // The heart-rate strap, if paired, overrides any HR the trainer
+        // itself reports — dedicated straps are the accurate source (see
+        // docs/hr-strap.md).
+        let dataSource: () -> FTMS.IndoorBikeData = { [weak hrMonitor] in
+            var data = baseSource()
+            if let bpm = hrMonitor?.bpm { data.heartRateBpm = bpm }
+            return data
+        }
 
         engine.start(
             dataSource: dataSource,
