@@ -27,7 +27,10 @@ single player, one map, your watts — no subscription, no account, no cloud.
   **target distance selector** (free / 5 / 10 / 20 / 40 km, auto-finish) →
   ride → summary. **Demo mode** plays without any hardware.
 - 🔌 **Trainer connection over BLE FTMS** — guided pairing, live power /
-  cadence / speed / heart rate from any FTMS trainer
+  cadence / speed / heart rate from any FTMS trainer, automatic reconnect
+  with backoff if the link drops mid-ride
+- ❤️ **Heart-rate strap pairing** — optional BLE HRS strap (Garmin, Polar,
+  Wahoo TICKR…), remembered across launches, overrides trainer-reported HR
 - ⚡ **Power-based riding** — your real watts drive the avatar through a
   physics model (gravity, rolling resistance, aero drag); the HUD leads with
   watts, **power zones off your FTP**, W/kg, and a Zwift-style **auto-pause**
@@ -39,6 +42,8 @@ single player, one map, your watts — no subscription, no account, no cloud.
   chase camera, mini map, elevation profile
 - 📊 **Ride recording** — per-second samples, post-ride summary (avg/max
   power, elevation gain, energy), **TCX export → upload to Strava**
+- 🗂️ **Ride history** — every completed ride is saved locally; browse past
+  rides, re-export any of them to TCX, or delete them
 - ⚙️ **Settings** — rider/bike weight, FTP, trainer difficulty (⌘,)
 
 Out of scope for v1: multiplayer, racing, ERG workouts, ANT+. See

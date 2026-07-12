@@ -43,11 +43,12 @@ public enum TCXExporter {
             lines.append("            <Time>\(time)</Time>")
             lines.append("            <AltitudeMeters>\(format(sample.elevationMeters))</AltitudeMeters>")
             lines.append("            <DistanceMeters>\(format(sample.distanceMeters))</DistanceMeters>")
-            if let cadence = sample.cadenceRpm {
-                lines.append("            <Cadence>\(Int(cadence.rounded()))</Cadence>")
-            }
+            // TCX's Trackpoint_t sequence puts HeartRateBpm before Cadence.
             if let heartRate = sample.heartRateBpm {
                 lines.append("            <HeartRateBpm><Value>\(heartRate)</Value></HeartRateBpm>")
+            }
+            if let cadence = sample.cadenceRpm {
+                lines.append("            <Cadence>\(Int(cadence.rounded()))</Cadence>")
             }
             let speedMS = sample.speedKmh / 3.6
             var extensions = "<ns3:Speed>\(format(speedMS))</ns3:Speed>"

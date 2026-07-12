@@ -11,25 +11,27 @@ public struct DiscoveredTrainer: Identifiable, Equatable {
 /// Connects to a smart trainer over BLE FTMS: streams live ride data and
 /// controls resistance through simulation parameters.
 ///
-/// Handshake on connect: discover the FTMS service, subscribe to Indoor Bike
-/// Data notifications and Control Point indications, then Request Control and
-/// Start/Resume. Simulation commands only take effect once control is granted.
+/// This is a thin CoreBluetooth adapter: all session logic (handshake,
+/// error handling, auto-reconnect with backoff) lives in the pure
+/// `TrainerSession` state machine. This type only translates
+/// `CBCentralManagerDelegate`/`CBPeripheralDelegate` callbacks into session
+/// `Event`s and executes session `Command`s against CoreBluetooth — it makes
+/// no decisions of its own. See `docs/ble-reliability.md` for the design.
 ///
 /// REVIEW (to verify on the Van Rysel D500 during hardware testing):
 /// - whether the D500 requires Start/Resume after Request Control, or accepts
 ///   simulation parameters straight away;
 /// - behaviour when another app (Zwift) already holds control;
-/// - auto-reconnect after a dropped link is NOT implemented yet — the ride
-///   just stops publishing data. Planned for the hardening pass (Plan.md M4/M5).
+/// - REVIEW: whether a stale `CBPeripheral` reference retrieved via
+///   `retrievePeripherals(withIdentifiers:)` during a reconnect attempt is
+///   still connectable (trainer power-cycle, radio re-pairing, etc.) is
+///   unverified — see docs/ble-reliability.md §REVIEW.
 public final class TrainerManager: NSObject, ObservableObject {
 
-    public enum ConnectionState: Equatable {
-        case bluetoothUnavailable(reason: String)
-        case idle
-        case scanning
-        case connecting
-        case connected(name: String)
-    }
+    /// `TrainerSession.State` is the single source of truth for connection
+    /// state; kept as a typealias so existing call sites (and most of the
+    /// UI) compile unchanged.
+    public typealias ConnectionState = TrainerSession.State
 
     @Published public private(set) var state: ConnectionState = .idle
     @Published public private(set) var discovered: [DiscoveredTrainer] = []
@@ -37,9 +39,18 @@ public final class TrainerManager: NSObject, ObservableObject {
     @Published public private(set) var hasControl = false
     @Published public private(set) var lastError: String?
 
+    private let session = TrainerSession()
+
     private var central: CBCentralManager!
     private var trainer: CBPeripheral?
-    private var controlPoint: CBCharacteristic?
+    private var ftmsService: CBService?
+    private var indoorBikeDataCharacteristic: CBCharacteristic?
+    private var controlPointCharacteristic: CBCharacteristic?
+
+    /// Cancellable stand-in for the session's `scheduleReconnect`/`cancelReconnect`
+    /// commands: the session has no timers of its own (see `TrainerSession`),
+    /// so the adapter is the one thing that actually waits.
+    private var reconnectWorkItem: DispatchWorkItem?
 
     private let serviceUUID = CBUUID(string: FTMS.serviceUUID)
     private let indoorBikeDataUUID = CBUUID(string: FTMS.indoorBikeDataUUID)
@@ -47,59 +58,124 @@ public final class TrainerManager: NSObject, ObservableObject {
 
     public override init() {
         super.init()
+        session.onCommand = { [weak self] command in
+            self?.execute(command)
+        }
         // Main queue keeps all delegate callbacks and @Published updates on
         // the main thread; fine at FTMS data rates (a few notifications/s).
         central = CBCentralManager(delegate: self, queue: .main)
+        syncFromSession()
     }
 
     // MARK: - Public API
 
     public func startScan() {
-        guard central.state == .poweredOn else { return }
-        discovered = []
-        lastError = nil
-        state = .scanning
-        central.scanForPeripherals(withServices: [serviceUUID])
+        session.startScan()
+        syncFromSession()
     }
 
     public func stopScan() {
-        central.stopScan()
-        if state == .scanning { state = .idle }
+        session.stopScan()
+        syncFromSession()
     }
 
     public func connect(_ device: DiscoveredTrainer) {
-        guard let target = central.retrievePeripherals(withIdentifiers: [device.id]).first else {
-            lastError = "Trainer is no longer reachable — scan again."
-            return
-        }
-        central.stopScan()
-        state = .connecting
-        trainer = target
-        target.delegate = self
-        central.connect(target)
+        // Must go through the session's intent (not a direct CB `connect`)
+        // so it remembers the target for reconnect attempts.
+        session.connect(id: device.id, name: device.name)
+        syncFromSession()
     }
 
     public func disconnect() {
-        guard let trainer else { return }
-        central.cancelPeripheralConnection(trainer)
+        session.disconnect()
+        syncFromSession()
     }
 
     /// Sends a slope to the trainer via FTMS SIM mode.
     public func setGrade(percent: Double) {
-        send(FTMS.setIndoorBikeSimulation(gradePercent: percent))
+        session.setGrade(percent: percent)
+        syncFromSession()
     }
 
-    private func send(_ command: Data) {
-        guard let trainer, let controlPoint else { return }
-        trainer.writeValue(command, for: controlPoint, type: .withResponse)
+    // MARK: - Command execution (session → CoreBluetooth)
+
+    private func execute(_ command: TrainerSession.Command) {
+        switch command {
+        case .startScan:
+            central.scanForPeripherals(withServices: [serviceUUID])
+
+        case .stopScan:
+            central.stopScan()
+
+        case let .connect(id):
+            guard let target = central.retrievePeripherals(withIdentifiers: [id]).first else {
+                // REVIEW: real-hardware behavior of a stale CBPeripheral
+                // reference (e.g. after a power-cycle) during a reconnect
+                // attempt is unverified — see docs/ble-reliability.md §REVIEW.
+                // Feeding back a failure keeps the backoff loop going instead
+                // of leaving the session stuck mid-connect.
+                session.handle(.didFailToConnect(message: "Trainer is no longer reachable — scan again."))
+                syncFromSession()
+                return
+            }
+            trainer = target
+            target.delegate = self
+            central.connect(target)
+
+        case .cancelConnection:
+            if let trainer {
+                central.cancelPeripheralConnection(trainer)
+            }
+
+        case .discoverServices:
+            trainer?.discoverServices([serviceUUID])
+
+        case .discoverCharacteristics:
+            if let ftmsService {
+                trainer?.discoverCharacteristics([indoorBikeDataUUID, controlPointUUID], for: ftmsService)
+            }
+
+        case .subscribeIndoorBikeData:
+            if let indoorBikeDataCharacteristic {
+                trainer?.setNotifyValue(true, for: indoorBikeDataCharacteristic)
+            }
+
+        case .subscribeControlPoint:
+            if let controlPointCharacteristic {
+                trainer?.setNotifyValue(true, for: controlPointCharacteristic)
+            }
+
+        case let .write(data):
+            if let trainer, let controlPointCharacteristic {
+                trainer.writeValue(data, for: controlPointCharacteristic, type: .withResponse)
+            }
+
+        case let .scheduleReconnect(after):
+            reconnectWorkItem?.cancel()
+            let workItem = DispatchWorkItem { [weak self] in
+                self?.session.handle(.reconnectTimerFired)
+                self?.syncFromSession()
+            }
+            reconnectWorkItem = workItem
+            DispatchQueue.main.asyncAfter(deadline: .now() + after, execute: workItem)
+
+        case .cancelReconnect:
+            reconnectWorkItem?.cancel()
+            reconnectWorkItem = nil
+        }
     }
 
-    private func resetConnection() {
-        trainer = nil
-        controlPoint = nil
-        hasControl = false
-        liveData = FTMS.IndoorBikeData()
-        state = .idle
+    // MARK: - Snapshot sync
+
+    /// Copies the session's snapshot into the `@Published` properties,
+    /// assigning only when the value changed to avoid redundant SwiftUI
+    /// invalidation.
+    private func syncFromSession() {
+        if state != session.state { state = session.state }
+        if discovered != session.discovered { discovered = session.discovered }
+        if liveData != session.liveData { liveData = session.liveData }
+        if hasControl != session.hasControl { hasControl = session.hasControl }
+        if lastError != session.lastError { lastError = session.lastError }
     }
 }
 
@@ -110,18 +186,19 @@ extension TrainerManager: CBCentralManagerDelegate {
     public func centralManagerDidUpdateState(_ central: CBCentralManager) {
         switch central.state {
         case .poweredOn:
-            if case .bluetoothUnavailable = state { state = .idle }
+            session.handle(.bluetoothDidBecomeAvailable)
         case .poweredOff:
-            state = .bluetoothUnavailable(reason: "Bluetooth is turned off.")
+            session.handle(.bluetoothDidBecomeUnavailable(reason: "Bluetooth is turned off."))
         case .unauthorized:
-            state = .bluetoothUnavailable(
+            session.handle(.bluetoothDidBecomeUnavailable(
                 reason: "Bluetooth access denied — allow Skift in System Settings → Privacy & Security → Bluetooth."
-            )
+            ))
         case .unsupported:
-            state = .bluetoothUnavailable(reason: "This Mac does not support Bluetooth LE.")
+            session.handle(.bluetoothDidBecomeUnavailable(reason: "This Mac does not support Bluetooth LE."))
         default:
             break
         }
+        syncFromSession()
     }
 
     public func centralManager(
@@ -133,17 +210,13 @@ extension TrainerManager: CBCentralManagerDelegate {
         let name = peripheral.name
             ?? advertisementData[CBAdvertisementDataLocalNameKey] as? String
             ?? "Unknown trainer"
-        let found = DiscoveredTrainer(id: peripheral.identifier, name: name, rssi: RSSI.intValue)
-        if let index = discovered.firstIndex(where: { $0.id == found.id }) {
-            discovered[index] = found
-        } else {
-            discovered.append(found)
-        }
+        session.handle(.didDiscover(id: peripheral.identifier, name: name, rssi: RSSI.intValue))
+        syncFromSession()
     }
 
     public func centralManager(_ central: CBCentralManager, didConnect peripheral: CBPeripheral) {
-        state = .connected(name: peripheral.name ?? "Trainer")
-        peripheral.discoverServices([serviceUUID])
+        session.handle(.didConnect(name: peripheral.name ?? "Trainer"))
+        syncFromSession()
     }
 
     public func centralManager(
@@ -151,8 +224,8 @@ extension TrainerManager: CBCentralManagerDelegate {
         didFailToConnect peripheral: CBPeripheral,
         error: Error?
     ) {
-        lastError = error?.localizedDescription ?? "Connection failed."
-        resetConnection()
+        session.handle(.didFailToConnect(message: error?.localizedDescription))
+        syncFromSession()
     }
 
     public func centralManager(
@@ -160,10 +233,11 @@ extension TrainerManager: CBCentralManagerDelegate {
         didDisconnectPeripheral peripheral: CBPeripheral,
         error: Error?
     ) {
-        if let error {
-            lastError = error.localizedDescription
-        }
-        resetConnection()
+        ftmsService = nil
+        indoorBikeDataCharacteristic = nil
+        controlPointCharacteristic = nil
+        session.handle(.didDisconnect(message: error?.localizedDescription))
+        syncFromSession()
     }
 }
 
@@ -172,12 +246,10 @@ extension TrainerManager: CBCentralManagerDelegate {
 extension TrainerManager: CBPeripheralDelegate {
 
     public func peripheral(_ peripheral: CBPeripheral, didDiscoverServices error: Error?) {
-        guard let service = peripheral.services?.first(where: { $0.uuid == serviceUUID }) else {
-            lastError = "Connected device does not expose the FTMS service."
-            disconnect()
-            return
-        }
-        peripheral.discoverCharacteristics([indoorBikeDataUUID, controlPointUUID], for: service)
+        let service = peripheral.services?.first(where: { $0.uuid == serviceUUID })
+        ftmsService = service
+        session.handle(.didDiscoverFTMSService(found: service != nil))
+        syncFromSession()
     }
 
     public func peripheral(
@@ -185,19 +257,22 @@ extension TrainerManager: CBPeripheralDelegate {
         didDiscoverCharacteristicsFor service: CBService,
         error: Error?
     ) {
+        var foundIndoorBikeData = false
+        var foundControlPoint = false
         for characteristic in service.characteristics ?? [] {
             switch characteristic.uuid {
             case indoorBikeDataUUID:
-                peripheral.setNotifyValue(true, for: characteristic)
+                indoorBikeDataCharacteristic = characteristic
+                foundIndoorBikeData = true
             case controlPointUUID:
-                controlPoint = characteristic
-                // Command responses arrive as indications on this characteristic.
-                peripheral.setNotifyValue(true, for: characteristic)
-                peripheral.writeValue(FTMS.requestControl(), for: characteristic, type: .withResponse)
+                controlPointCharacteristic = characteristic
+                foundControlPoint = true
             default:
                 break
             }
         }
+        session.handle(.didDiscoverCharacteristics(indoorBikeData: foundIndoorBikeData, controlPoint: foundControlPoint))
+        syncFromSession()
     }
 
     public func peripheral(
@@ -208,28 +283,12 @@ extension TrainerManager: CBPeripheralDelegate {
         guard error == nil, let data = characteristic.value else { return }
         switch characteristic.uuid {
         case indoorBikeDataUUID:
-            if let parsed = FTMS.parseIndoorBikeData(data) {
-                liveData = parsed
-            }
+            session.handle(.didReceiveIndoorBikeData(data))
         case controlPointUUID:
-            handleControlPointResponse(data)
+            session.handle(.didReceiveControlPointResponse(data))
         default:
-            break
+            return
         }
-    }
-
-    private func handleControlPointResponse(_ data: Data) {
-        guard let response = FTMS.parseControlPointResponse(data) else { return }
-        if response.requestOpCode == FTMS.OpCode.requestControl.rawValue {
-            hasControl = response.result == .success
-            if hasControl {
-                send(FTMS.startOrResume())
-            } else {
-                lastError = "Trainer refused control — is another app (e.g. Zwift) connected?"
-            }
-        } else if response.result != .success {
-            let opcode = String(format: "0x%02X", response.requestOpCode)
-            lastError = "Trainer rejected command \(opcode)."
-        }
+        syncFromSession()
     }
 }

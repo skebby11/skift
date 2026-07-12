@@ -1,7 +1,11 @@
 import Foundation
 
 /// One recorded instant of a ride, sampled once per simulated second.
-public struct RideSample: Equatable {
+/// Codable so `RideStore` can persist and reload it verbatim (see
+/// docs/ride-history.md) — synthesized here, in the same file as the
+/// declaration, rather than via an extension in RideStore.swift, since
+/// cross-file extensions don't get automatic Codable synthesis.
+public struct RideSample: Equatable, Codable {
     /// Seconds since the ride started.
     public let timeOffset: TimeInterval
     public let powerWatts: Int?

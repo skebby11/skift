@@ -8,6 +8,9 @@ enum RiderSettings {
     static let bikeKgKey = "bikeKg"
     static let trainerDifficultyKey = "trainerDifficulty"
     static let ftpKey = "ftpWatts"
+    /// Remembered heart-rate strap (UUID string), set on successful connect
+    /// and cleared on user disconnect — see PairingView's HR section.
+    static let hrStrapIDKey = "hrStrapID"
 
     static let defaultRiderKg = 75.0
     static let defaultBikeKg = 8.0

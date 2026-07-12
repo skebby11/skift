@@ -222,6 +222,8 @@ add new ones as they emerge.*
   - [ ] Log a few raw Indoor Bike Data payloads (which fields does the D500 send?)
   - [ ] Target ride (5 km) auto-completes into the summary
   - [ ] Export TCX; upload to Strava succeeds
+  - [ ] With a HR strap (Garmin/Polar): pair, live bpm on HUD, bpm in exported TCX
+  - [ ] Ride history: completed ride appears, re-exported TCX matches, delete works
 - [ ] **Fix whatever the validation session finds** (expect BLE quirks and
   rough 3D — that's the point of the session)
 - [ ] **Art pass** (needs the screenshot + direction): reshape track control
@@ -232,18 +234,21 @@ add new ones as they emerge.*
 
 ### To-do — backlog (v1.x / v2, roughly ordered)
 
-- [ ] BLE auto-reconnect after dropped link
+- [x] ~~BLE auto-reconnect after dropped link~~ (shipped: `TrainerSession`
+      state machine with infinite 1→30 s backoff — see docs/ble-reliability.md)
 - [ ] Italian localization (UI ships in English as the OSS lingua franca;
       add a String Catalog with `it` once strings stabilize)
 - [ ] App icon (needed for M5; must be original or CC0 — stock-icon licenses
       like Flaticon/Icons8 require attribution and clash with Apache-2.0 redistribution)
 - [ ] Trainer test matrix beyond the D500 (Wahoo, Tacx, Elite via community)
 - [ ] FIT export (Strava-native format; TCX ships first)
-- [ ] Ride history persistence in-app
+- [x] ~~Ride history persistence in-app~~ (promoted into v1.x on
+      2026-07-12 — see docs/ride-history.md)
 - [x] ~~Smoothed route gradients~~ (shipped in PR #9)
 - [ ] Ghost rider (race your previous recording — cheap "multiplayer")
 - [ ] ERG mode / structured workouts
-- [ ] Heart-rate strap via BLE HRS (separate sensor pairing)
+- [x] ~~Heart-rate strap via BLE HRS (separate sensor pairing)~~ (promoted
+      into v1 on 2026-07-11 — see docs/hr-strap.md)
 - [ ] iOS/iPadOS/tvOS targets
 - [ ] Real multiplayer (server, presence, drafting) — the big one
 
@@ -259,3 +264,6 @@ add new ones as they emerge.*
 | 2026-07-02 | Test hardware: Van Rysel D500 (Decathlon) | Owned by the team; supports BLE FTMS natively (plus ANT+ and Zwift Cog/Click), 15% max grade simulation — ideal dev target |
 | 2026-07-02 | Stack: Swift + SwiftUI + RealityKit + Core Bluetooth | iPhone/iPad/Apple TV reach and first-class App Store path judged worth the learning curve vs. the web stack (§5) |
 | 2026-07-02 | Ride export: TCX first, FIT later | Plain XML, no binary SDK, Strava imports it; FIT stays on the backlog |
+| 2026-07-11 | Auto-reconnect: infinite exponential backoff (1→30 s cap) | Ride integrity protected by existing auto-pause; BLE logic extracted into pure `TrainerSession` for unit testing |
+| 2026-07-11 | HR strap (BLE HRS) promoted into v1 | Riders own straps and most trainers don't report HR; standard service, small surface (see docs/hr-strap.md) |
+| 2026-07-12 | Ride history: local JSON store (one file per ride) | Full samples kept so TCX re-export matches the original; corrupt files skipped, never fatal (see docs/ride-history.md) |

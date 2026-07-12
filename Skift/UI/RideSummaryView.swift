@@ -5,6 +5,9 @@ import UniformTypeIdentifiers
 /// Post-ride sheet: summary stats plus TCX export (Strava-compatible).
 struct RideSummaryView: View {
     let recorder: RideRecorder
+    /// Non-nil when the automatic save to History failed. Failure never
+    /// blocks the summary — this just surfaces it (docs/ride-history.md).
+    var saveError: String? = nil
     let onDone: () -> Void
 
     @State private var exportMessage: String?
@@ -35,6 +38,12 @@ struct RideSummaryView: View {
             } else {
                 Text("The ride was too short to record anything.")
                     .foregroundStyle(.secondary)
+            }
+
+            if let saveError {
+                Label(saveError, systemImage: "exclamationmark.triangle")
+                    .font(.caption)
+                    .foregroundStyle(.orange)
             }
 
             if let exportMessage {
