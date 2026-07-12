@@ -36,6 +36,10 @@ single player, one map, your watts — no subscription, no account, no cloud.
   watts, **power zones off your FTP**, W/kg, and a Zwift-style **auto-pause**
 - ⛰️ **Slope simulation** — the smoothed route gradient is sent to the
   trainer (FTMS SIM mode) with a configurable "trainer difficulty" scale
+- 🎯 **ERG workouts** — build simple interval sessions (warmup → N ×
+  work/recovery → cooldown, watts pre-filled from your FTP), save them, and
+  ride them in ERG mode: the trainer holds each step's target power, with an
+  in-ride panel for the countdown, next step, ±5 W bumps and step skip
 - 🏝️ **One 3D island loop** — 8.2 km with a ~5% climb around a mountain:
   spline road with markings, start/finish arch, km signs, village, forest;
   animated avatar (spinning wheels, pedaling cadence) interpolated at 60+ fps,
@@ -50,7 +54,7 @@ single player, one map, your watts — no subscription, no account, no cloud.
   so no shared client secret ships with it
 - ⚙️ **Settings** — rider/bike weight, FTP, trainer difficulty (⌘,)
 
-Out of scope for v1: multiplayer, racing, ERG workouts, ANT+. See
+Out of scope for v1: multiplayer, racing, ANT+. See
 [`Plan.md`](Plan.md) for the roadmap and every design decision.
 
 ## Requirements

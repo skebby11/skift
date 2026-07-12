@@ -221,6 +221,7 @@ add new ones as they emerge.*
         speeds believable vs. Zwift at the same watts
   - [ ] Log a few raw Indoor Bike Data payloads (which fields does the D500 send?)
   - [ ] Target ride (5 km) auto-completes into the summary
+  - [ ] ERG: builder workout runs, resistance follows targets, ±5W and skip work
   - [ ] Export TCX; upload to Strava succeeds
   - [ ] With a HR strap (Garmin/Polar): pair, live bpm on HUD, bpm in exported TCX
   - [ ] Ride history: completed ride appears, re-exported TCX matches, delete works
