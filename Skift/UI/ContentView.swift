@@ -2,13 +2,15 @@ import SwiftUI
 import SkiftKit
 
 /// Which screen the game is on. One linear flow, no hidden states:
-/// menu → pairing → ride setup → riding → summary → menu.
+/// menu → pairing → ride setup → riding → summary → menu. `.history` is a
+/// side branch off the menu (menu → history → menu), not part of the ride flow.
 enum GamePhase {
     case menu
     case pairing
     case rideSetup
     case riding
     case summary
+    case history
 }
 
 /// Root view: owns the long-lived objects (trainer, engine) and drives the
@@ -36,11 +38,14 @@ struct ContentView: View {
         Group {
             switch phase {
             case .menu:
-                MenuView {
-                    // Skip pairing when the trainer is already good to go.
-                    isDemoMode = false
-                    phase = trainer.hasControl ? .rideSetup : .pairing
-                }
+                MenuView(
+                    onRide: {
+                        // Skip pairing when the trainer is already good to go.
+                        isDemoMode = false
+                        phase = trainer.hasControl ? .rideSetup : .pairing
+                    },
+                    onHistory: { phase = .history }
+                )
             case .pairing:
                 PairingView(
                     trainer: trainer,
@@ -63,6 +68,10 @@ struct ContentView: View {
                 ridingScreen
             case .summary:
                 RideSummaryView(recorder: engine.recorder, saveError: saveError) {
+                    phase = .menu
+                }
+            case .history:
+                HistoryView(rideStore: rideStore) {
                     phase = .menu
                 }
             }

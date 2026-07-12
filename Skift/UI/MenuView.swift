@@ -4,6 +4,7 @@ import SwiftUI
 /// big wordmark on a dark gradient, three actions, no chrome.
 struct MenuView: View {
     let onRide: () -> Void
+    let onHistory: () -> Void
 
     var body: some View {
         ZStack {
@@ -47,6 +48,18 @@ struct MenuView: View {
                     .controlSize(.large)
                     .keyboardShortcut(.defaultAction)
 
+                    Button {
+                        onHistory()
+                    } label: {
+                        Label("History", systemImage: "clock.arrow.circlepath")
+                            .font(.body.weight(.semibold))
+                            .foregroundStyle(.white)
+                            .frame(width: 220)
+                            .padding(.vertical, 9)
+                            .background(.white.opacity(0.1), in: RoundedRectangle(cornerRadius: 10))
+                    }
+                    .buttonStyle(.plain)
+
                     // SettingsLink opens the standard macOS Settings window (⌘,).
                     SettingsLink {
                         Label("Settings", systemImage: "gearshape")
@@ -83,6 +96,6 @@ struct MenuView: View {
 }
 
 #Preview {
-    MenuView(onRide: {})
+    MenuView(onRide: {}, onHistory: {})
         .frame(width: 760, height: 620)
 }
