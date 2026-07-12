@@ -20,6 +20,12 @@ rolling relief and a less mechanical coastline.
 All variation is derived from world coordinates and contains no runtime
 randomness, keeping screenshots and future regression tests reproducible.
 
+The verified in-app result is captured in
+[`art/terrain-relief-runtime.png`](art/terrain-relief-runtime.png). Relief is
+deliberately suppressed beside the road and becomes visible toward the horizon;
+this keeps riding readable while preparing the wider island for detailed
+coastal and vegetation passes.
+
 ## Acceptance checks
 
 - No terrain deformation reaches the road bed.
