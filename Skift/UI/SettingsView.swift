@@ -28,6 +28,8 @@ enum RiderSettings {
 
 /// The standard macOS Settings window (⌘,).
 struct SettingsView: View {
+    @ObservedObject var strava: StravaAccount
+
     @AppStorage(RiderSettings.riderKgKey)
     private var riderKg = RiderSettings.defaultRiderKg
     @AppStorage(RiderSettings.bikeKgKey)
@@ -36,6 +38,16 @@ struct SettingsView: View {
     private var trainerDifficulty = RiderSettings.defaultTrainerDifficulty
     @AppStorage(RiderSettings.ftpKey)
     private var ftp = RiderSettings.defaultFTP
+    @AppStorage(RiderSettings.stravaClientIDKey)
+    private var stravaClientID = ""
+    @AppStorage(RiderSettings.stravaAutoUploadKey)
+    private var stravaAutoUpload = RiderSettings.defaultStravaAutoUpload
+
+    /// Local draft of the client secret; committed to Keychain on field
+    /// submit or Connect — never stored in UserDefaults.
+    @State private var clientSecretDraft = ""
+    @State private var isConnecting = false
+    @State private var stravaError: String?
 
     var body: some View {
         Form {
@@ -62,13 +74,84 @@ struct SettingsView: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
+            Section("Strava") {
+                stravaSection
+            }
         }
         .formStyle(.grouped)
         .frame(width: 420)
         .padding()
+        .onAppear {
+            clientSecretDraft = strava.clientSecret
+        }
+    }
+
+    // MARK: - Strava
+
+    /// BYO API app: Skift is open source, so it can't ship a shared client
+    /// secret — the user creates their own Strava API application and pastes
+    /// its credentials here (docs/strava-upload.md).
+    @ViewBuilder
+    private var stravaSection: some View {
+        TextField("Client ID", text: $stravaClientID)
+            .disableAutocorrection(true)
+        SecureField("Client secret", text: $clientSecretDraft)
+            .onSubmit { strava.clientSecret = clientSecretDraft }
+
+        Toggle("Auto-upload completed rides", isOn: $stravaAutoUpload)
+
+        HStack {
+            if strava.isConnected {
+                Label(
+                    strava.athleteName.map { "Connected as \($0)" } ?? "Connected",
+                    systemImage: "checkmark.circle.fill"
+                )
+                .foregroundStyle(.green)
+                Spacer()
+                Button("Disconnect") { strava.disconnect() }
+            } else {
+                Text("Not connected")
+                    .foregroundStyle(.secondary)
+                Spacer()
+                if isConnecting {
+                    ProgressView()
+                        .controlSize(.small)
+                }
+                Button("Connect Strava…") { connectStrava() }
+                    .disabled(isConnecting || stravaClientID.isEmpty || clientSecretDraft.isEmpty)
+            }
+        }
+
+        if let stravaError {
+            Text(stravaError)
+                .font(.caption)
+                .foregroundStyle(.red)
+        }
+
+        Text("Create an API app at strava.com/settings/api with callback domain 127.0.0.1")
+            .font(.caption)
+            .foregroundStyle(.secondary)
+    }
+
+    private func connectStrava() {
+        // Connect implies commit: whatever is in the secret field is what
+        // the flow should use (and what Keychain should keep).
+        strava.clientSecret = clientSecretDraft
+        isConnecting = true
+        stravaError = nil
+        Task {
+            do {
+                try await strava.connect()
+            } catch is CancellationError {
+                // Window closed mid-flow — no error worth surfacing.
+            } catch {
+                stravaError = error.localizedDescription
+            }
+            isConnecting = false
+        }
     }
 }
 
 #Preview {
-    SettingsView()
+    SettingsView(strava: StravaAccount())
 }

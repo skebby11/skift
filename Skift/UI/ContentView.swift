@@ -16,6 +16,10 @@ enum GamePhase {
 /// Root view: owns the long-lived objects (trainer, engine) and drives the
 /// game flow. Each screen is its own view; this file only does wiring.
 struct ContentView: View {
+    /// Owned by `SkiftApp` and shared with the Settings window, where
+    /// connect/disconnect lives (docs/strava-upload.md).
+    @ObservedObject var strava: StravaAccount
+
     @StateObject private var trainer = TrainerManager()
     @StateObject private var hrMonitor = HeartRateMonitor()
     @StateObject private var engine = RideEngine(route: .island)
@@ -25,6 +29,9 @@ struct ContentView: View {
     @State private var phase: GamePhase = .menu
     @State private var isDemoMode = false
     @State private var saveError: String?
+    /// The just-completed ride as saved to History — RideSummaryView keys
+    /// its Strava upload (and markUploaded) on it.
+    @State private var savedRide: StoredRide?
 
     // Rider settings (editable in the Settings window, applied at ride start).
     @AppStorage(RiderSettings.riderKgKey)
@@ -68,11 +75,17 @@ struct ContentView: View {
             case .riding:
                 ridingScreen
             case .summary:
-                RideSummaryView(recorder: engine.recorder, saveError: saveError) {
+                RideSummaryView(
+                    recorder: engine.recorder,
+                    strava: strava,
+                    savedRide: savedRide,
+                    rideStore: rideStore,
+                    saveError: saveError
+                ) {
                     phase = .menu
                 }
             case .history:
-                HistoryView(rideStore: rideStore) {
+                HistoryView(rideStore: rideStore, strava: strava) {
                     phase = .menu
                 }
             }
@@ -191,8 +204,9 @@ struct ContentView: View {
     }
 
     private func saveCompletedRide() -> String? {
+        savedRide = nil
         do {
-            try rideStore.save(recorder: engine.recorder)
+            savedRide = try rideStore.save(recorder: engine.recorder)
             return nil
         } catch RideStoreError.nothingToSave {
             // Ride was too short to summarize — nothing to persist, not a failure.
@@ -204,5 +218,5 @@ struct ContentView: View {
 }
 
 #Preview {
-    ContentView()
+    ContentView(strava: StravaAccount())
 }

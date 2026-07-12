@@ -2,15 +2,34 @@ import SwiftUI
 import SkiftKit
 import UniformTypeIdentifiers
 
-/// Post-ride sheet: summary stats plus TCX export (Strava-compatible).
+/// Post-ride sheet: summary stats plus TCX export (Strava-compatible) and,
+/// when a Strava account is connected, direct upload (docs/strava-upload.md).
 struct RideSummaryView: View {
     let recorder: RideRecorder
+    @ObservedObject var strava: StravaAccount
+    /// The ride as saved to History, nil when saving failed or the ride was
+    /// too short to persist. Uploads are keyed on it: markUploaded needs the
+    /// stored id, and auto-upload must not re-upload a ride that already
+    /// carries an activity id.
+    var savedRide: StoredRide?
+    let rideStore: RideStore
     /// Non-nil when the automatic save to History failed. Failure never
     /// blocks the summary — this just surfaces it (docs/ride-history.md).
     var saveError: String? = nil
     let onDone: () -> Void
 
+    @AppStorage(RiderSettings.stravaAutoUploadKey)
+    private var stravaAutoUpload = RiderSettings.defaultStravaAutoUpload
+
+    private enum UploadState: Equatable {
+        case idle
+        case uploading
+        case uploaded(activityID: Int64)
+        case failed(String)
+    }
+
     @State private var exportMessage: String?
+    @State private var uploadState: UploadState = .idle
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
@@ -52,9 +71,15 @@ struct RideSummaryView: View {
                     .foregroundStyle(.secondary)
             }
 
+            stravaStatusLine
+
             HStack {
                 Button("Export TCX…") { exportTCX() }
                     .disabled(recorder.summary == nil)
+                if strava.isConnected {
+                    Button("Upload to Strava") { uploadToStrava() }
+                        .disabled(recorder.summary == nil || uploadState == .uploading || isUploaded)
+                }
                 Spacer()
                 Button("Done", action: onDone)
                     .keyboardShortcut(.defaultAction)
@@ -62,7 +87,77 @@ struct RideSummaryView: View {
         }
         .padding(24)
         .frame(minWidth: 460)
+        .onAppear {
+            // Auto-upload: same path as the button, only when the toggle is
+            // on, the account is connected, the ride made it into History,
+            // and it doesn't already carry an activity id.
+            if stravaAutoUpload, strava.isConnected,
+               savedRide != nil, !isUploaded, uploadState == .idle {
+                uploadToStrava()
+            }
+        }
     }
+
+    // MARK: - Strava upload
+
+    private var isUploaded: Bool {
+        if case .uploaded = uploadState { return true }
+        return savedRide?.stravaActivityID != nil
+    }
+
+    @ViewBuilder
+    private var stravaStatusLine: some View {
+        switch uploadState {
+        case .idle:
+            if let activityID = savedRide?.stravaActivityID {
+                stravaLink(activityID: activityID)
+            }
+        case .uploading:
+            HStack(spacing: 8) {
+                ProgressView().controlSize(.small)
+                Text("Uploading to Strava…")
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+            }
+        case let .uploaded(activityID):
+            stravaLink(activityID: activityID)
+        case let .failed(message):
+            Label(message, systemImage: "exclamationmark.triangle")
+                .font(.caption)
+                .foregroundStyle(.orange)
+        }
+    }
+
+    private func stravaLink(activityID: Int64) -> some View {
+        Link(destination: URL(string: "https://www.strava.com/activities/\(activityID)")!) {
+            Label("View on Strava", systemImage: "checkmark.circle.fill")
+        }
+        .font(.callout)
+    }
+
+    private func uploadToStrava() {
+        guard let tcx = TCXExporter.export(recorder: recorder) else { return }
+        uploadState = .uploading
+        Task {
+            do {
+                let activityID = try await strava.upload(
+                    tcxData: Data(tcx.utf8),
+                    name: "Skift virtual ride"
+                )
+                // Best-effort bookkeeping: the upload itself succeeded even
+                // if this local write fails — the next History visit simply
+                // offers upload again, and Strava dedupes.
+                if let savedRide {
+                    try? rideStore.markUploaded(id: savedRide.id, activityID: activityID)
+                }
+                uploadState = .uploaded(activityID: activityID)
+            } catch {
+                uploadState = .failed(error.localizedDescription)
+            }
+        }
+    }
+
+    // MARK: - Stats
 
     private func stat(_ label: String, _ value: String) -> some View {
         VStack(alignment: .leading, spacing: 2) {
