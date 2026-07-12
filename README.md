@@ -29,6 +29,8 @@ single player, one map, your watts — no subscription, no account, no cloud.
 - 🔌 **Trainer connection over BLE FTMS** — guided pairing, live power /
   cadence / speed / heart rate from any FTMS trainer, automatic reconnect
   with backoff if the link drops mid-ride
+- ❤️ **Heart-rate strap pairing** — optional BLE HRS strap (Garmin, Polar,
+  Wahoo TICKR…), remembered across launches, overrides trainer-reported HR
 - ⚡ **Power-based riding** — your real watts drive the avatar through a
   physics model (gravity, rolling resistance, aero drag); the HUD leads with
   watts, **power zones off your FTP**, W/kg, and a Zwift-style **auto-pause**
