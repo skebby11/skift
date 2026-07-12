@@ -90,13 +90,18 @@ struct SettingsView: View {
 
     /// BYO API app: Skift is open source, so it can't ship a shared client
     /// secret — the user creates their own Strava API application and pastes
-    /// its credentials here (docs/strava-upload.md).
+    /// its credentials here (docs/strava-upload.md). Provisioned builds with
+    /// a bundled `Secrets.plist` skip all of that and show only the
+    /// connect/disconnect controls (docs/strava-upload.md "Provisioned
+    /// builds").
     @ViewBuilder
     private var stravaSection: some View {
-        TextField("Client ID", text: $stravaClientID)
-            .disableAutocorrection(true)
-        SecureField("Client secret", text: $clientSecretDraft)
-            .onSubmit { strava.clientSecret = clientSecretDraft }
+        if !strava.usesBundledCredentials {
+            TextField("Client ID", text: $stravaClientID)
+                .disableAutocorrection(true)
+            SecureField("Client secret", text: $clientSecretDraft)
+                .onSubmit { strava.clientSecret = clientSecretDraft }
+        }
 
         Toggle("Auto-upload completed rides", isOn: $stravaAutoUpload)
 
@@ -119,7 +124,7 @@ struct SettingsView: View {
                     Button("Cancel") { strava.cancelConnect() }
                 } else {
                     Button("Connect Strava…") { connectStrava() }
-                        .disabled(stravaClientID.isEmpty || clientSecretDraft.isEmpty)
+                        .disabled(!strava.usesBundledCredentials && (stravaClientID.isEmpty || clientSecretDraft.isEmpty))
                 }
             }
         }
@@ -130,15 +135,21 @@ struct SettingsView: View {
                 .foregroundStyle(.red)
         }
 
-        Text("Create an API app at strava.com/settings/api with callback domain 127.0.0.1")
-            .font(.caption)
-            .foregroundStyle(.secondary)
+        if !strava.usesBundledCredentials {
+            Text("Create an API app at strava.com/settings/api with callback domain 127.0.0.1")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        }
     }
 
     private func connectStrava() {
         // Connect implies commit: whatever is in the secret field is what
-        // the flow should use (and what Keychain should keep).
-        strava.clientSecret = clientSecretDraft
+        // the flow should use (and what Keychain should keep). Bundled
+        // builds have no field to commit — leave any stored BYO secret
+        // untouched.
+        if !strava.usesBundledCredentials {
+            strava.clientSecret = clientSecretDraft
+        }
         isConnecting = true
         stravaError = nil
         Task {
