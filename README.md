@@ -44,6 +44,10 @@ single player, one map, your watts — no subscription, no account, no cloud.
   power, elevation gain, energy), **TCX export → upload to Strava**
 - 🗂️ **Ride history** — every completed ride is saved locally; browse past
   rides, re-export any of them to TCX, or delete them
+- 🚴 **Direct Strava upload** — one-click (or automatic) upload of completed
+  rides as *VirtualRide* activities, from the summary or from history; bring
+  your own Strava API app (strava.com/settings/api) — Skift is open source,
+  so no shared client secret ships with it
 - ⚙️ **Settings** — rider/bike weight, FTP, trainer difficulty (⌘,)
 
 Out of scope for v1: multiplayer, racing, ERG workouts, ANT+. See

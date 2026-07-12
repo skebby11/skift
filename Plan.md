@@ -224,6 +224,7 @@ add new ones as they emerge.*
   - [ ] Export TCX; upload to Strava succeeds
   - [ ] With a HR strap (Garmin/Polar): pair, live bpm on HUD, bpm in exported TCX
   - [ ] Ride history: completed ride appears, re-exported TCX matches, delete works
+  - [ ] Strava: connect, upload a ride, activity appears as VirtualRide
 - [ ] **Fix whatever the validation session finds** (expect BLE quirks and
   rough 3D — that's the point of the session)
 - [ ] **Art pass** (needs the screenshot + direction): reshape track control
