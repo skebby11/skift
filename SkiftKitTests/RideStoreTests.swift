@@ -119,4 +119,54 @@ final class RideStoreTests: XCTestCase {
     func testListOnEmptyStoreReturnsEmptyArray() throws {
         XCTAssertEqual(try store.list(), [])
     }
+
+    // MARK: - Strava activity id
+
+    func testNewlySavedRideHasNoStravaActivityID() throws {
+        let saved = try store.save(recorder: makeRecorder())
+        XCTAssertNil(saved.stravaActivityID)
+
+        let listed = try store.list()
+        XCTAssertNil(listed.first?.stravaActivityID)
+    }
+
+    func testMarkUploadedPersistsActivityID() throws {
+        let saved = try store.save(recorder: makeRecorder())
+
+        try store.markUploaded(id: saved.id, activityID: 998_877)
+
+        let listed = try store.list()
+        let ride = try XCTUnwrap(listed.first { $0.id == saved.id })
+        XCTAssertEqual(ride.stravaActivityID, 998_877)
+    }
+
+    func testMarkUploadedOnUnknownIDThrowsRideNotFound() throws {
+        _ = try store.save(recorder: makeRecorder())
+
+        XCTAssertThrowsError(try store.markUploaded(id: UUID(), activityID: 1)) { error in
+            XCTAssertEqual(error as? RideStoreError, .rideNotFound)
+        }
+    }
+
+    // MARK: - Backward compatibility (JSON written before stravaActivityID existed)
+
+    func testListDecodesOldJSONWithoutStravaActivityIDKey() throws {
+        try FileManager.default.createDirectory(at: tempDirectory, withIntermediateDirectories: true)
+        let oldJSON = """
+        {
+          "id": "8C7C2B7A-4B1B-4F7A-9C2A-000000000001",
+          "startDate": "2025-06-15T12:00:00Z",
+          "durationSeconds": 5,
+          "distanceMeters": 41.65,
+          "averagePowerWatts": 202,
+          "samples": []
+        }
+        """
+        let url = tempDirectory.appendingPathComponent("old-ride.json")
+        try oldJSON.write(to: url, atomically: true, encoding: .utf8)
+
+        let listed = try store.list()
+        XCTAssertEqual(listed.count, 1)
+        XCTAssertNil(listed.first?.stravaActivityID)
+    }
 }

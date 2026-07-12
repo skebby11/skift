@@ -10,6 +10,10 @@ public struct StoredRide: Codable, Identifiable, Equatable {
     public let distanceMeters: Double
     public let averagePowerWatts: Double
     public let samples: [RideSample]
+    /// Strava activity id once uploaded, nil otherwise. Optional (and
+    /// decoded via `decodeIfPresent`) so JSON written before this field
+    /// existed still loads — see docs/strava-upload.md.
+    public let stravaActivityID: Int64?
 
     public init(
         id: UUID,
@@ -17,7 +21,8 @@ public struct StoredRide: Codable, Identifiable, Equatable {
         durationSeconds: TimeInterval,
         distanceMeters: Double,
         averagePowerWatts: Double,
-        samples: [RideSample]
+        samples: [RideSample],
+        stravaActivityID: Int64? = nil
     ) {
         self.id = id
         self.startDate = startDate
@@ -25,14 +30,15 @@ public struct StoredRide: Codable, Identifiable, Equatable {
         self.distanceMeters = distanceMeters
         self.averagePowerWatts = averagePowerWatts
         self.samples = samples
+        self.stravaActivityID = stravaActivityID
     }
 }
 
-public enum RideStoreError: Error {
+public enum RideStoreError: Error, Equatable {
     /// `save(recorder:)` was called on a recorder with no meaningful summary
     /// (fewer than two samples) — nothing to persist.
     case nothingToSave
-    /// `delete(id:)` found no file for that id.
+    /// `delete(id:)` (or `markUploaded(id:activityID:)`) found no file for that id.
     case rideNotFound
 }
 
@@ -101,11 +107,43 @@ public final class RideStore {
 
     /// Deletes the ride with the given id.
     public func delete(id: UUID) throws {
+        try fileURL(forStoredID: id) { url in try fileManager.removeItem(at: url) }
+    }
+
+    /// Records the Strava activity id for a ride once its upload succeeds —
+    /// rewrites the ride's JSON file in place (docs/strava-upload.md).
+    public func markUploaded(id: UUID, activityID: Int64) throws {
+        try fileURL(forStoredID: id) { url in
+            let decoder = JSONDecoder()
+            decoder.dateDecodingStrategy = .iso8601
+            let data = try Data(contentsOf: url)
+            let ride = try decoder.decode(StoredRide.self, from: data)
+
+            let updated = StoredRide(
+                id: ride.id,
+                startDate: ride.startDate,
+                durationSeconds: ride.durationSeconds,
+                distanceMeters: ride.distanceMeters,
+                averagePowerWatts: ride.averagePowerWatts,
+                samples: ride.samples,
+                stravaActivityID: activityID
+            )
+
+            let encoder = JSONEncoder()
+            encoder.dateEncodingStrategy = .iso8601
+            try encoder.encode(updated).write(to: url, options: .atomic)
+        }
+    }
+
+    /// Locates the on-disk file for `id` and runs `body` with its URL, or
+    /// throws `.rideNotFound` if no file matches — shared by `delete` and
+    /// `markUploaded`.
+    private func fileURL(forStoredID id: UUID, _ body: (URL) throws -> Void) throws {
         let urls = try fileManager.contentsOfDirectory(at: directory, includingPropertiesForKeys: nil)
         guard let match = urls.first(where: { $0.lastPathComponent.contains(id.uuidString) }) else {
             throw RideStoreError.rideNotFound
         }
-        try fileManager.removeItem(at: match)
+        try body(match)
     }
 
     private func fileURL(for ride: StoredRide) -> URL {
