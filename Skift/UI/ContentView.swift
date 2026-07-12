@@ -61,6 +61,7 @@ struct ContentView: View {
                 RideSetupView(
                     route: engine.route,
                     isDemo: isDemoMode,
+                    hrMonitor: hrMonitor,
                     onStart: { target in startRide(targetMeters: target) },
                     onBack: { phase = .menu }
                 )

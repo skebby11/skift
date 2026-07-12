@@ -25,10 +25,17 @@ struct RideSetupView: View {
 
     let route: Route
     let isDemo: Bool
+    @ObservedObject var hrMonitor: HeartRateMonitor
     let onStart: (Double?) -> Void
     let onBack: () -> Void
 
     @State private var target: Target = .km10
+    // Collapsed by default: HR pairing is optional here too, it's just no
+    // longer hidden — see docs/hr-strap.md "Discoverability".
+    @State private var isHRExpanded = false
+
+    @AppStorage(RiderSettings.hrStrapIDKey)
+    private var hrStrapID: String?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 20) {
@@ -54,6 +61,8 @@ struct RideSetupView: View {
 
             ElevationProfileView(route: route, positionMeters: 0)
                 .frame(height: 120)
+
+            heartRateBox
 
             Text("How far do you want to ride?")
                 .font(.headline)
@@ -82,6 +91,42 @@ struct RideSetupView: View {
             }
         }
         .padding(28)
+        .onAppear {
+            // Silently reconnect to a remembered strap; never blocks Start.
+            // Guarded to `.idle` so this is a no-op if PairingView already
+            // started (or finished) the same reconnect — pairing skips
+            // straight here when the trainer already has control, and demo
+            // mode leaves pairing immediately, so this screen needs its own
+            // entry point too (see docs/hr-strap.md "Discoverability").
+            if case .idle = hrMonitor.state, let stored = hrStrapID, let id = UUID(uuidString: stored) {
+                hrMonitor.connectRemembered(id: id)
+            }
+        }
+    }
+
+    // MARK: - Heart rate (optional)
+
+    /// Compact HR box: connected straps get a one-line summary + Disconnect;
+    /// everything else collapses behind a disclosure revealing the full
+    /// picker. Never gates "Start ride".
+    @ViewBuilder
+    private var heartRateBox: some View {
+        if case .connected(let name) = hrMonitor.state {
+            HStack {
+                Text("❤️ \(hrMonitor.bpm.map { "\($0)" } ?? "--") bpm — \(name)")
+                    .font(.callout.bold())
+                Spacer()
+                Button("Disconnect") {
+                    hrMonitor.disconnect()
+                    hrStrapID = nil
+                }
+            }
+        } else {
+            DisclosureGroup("Connect heart-rate strap (optional)", isExpanded: $isHRExpanded) {
+                HeartRatePicker(hrMonitor: hrMonitor)
+                    .padding(.top, 8)
+            }
+        }
     }
 
     private func routeStat(_ label: String, _ value: String) -> some View {
@@ -114,6 +159,6 @@ struct RideSetupView: View {
 }
 
 #Preview {
-    RideSetupView(route: .island, isDemo: true, onStart: { _ in }, onBack: {})
+    RideSetupView(route: .island, isDemo: true, hrMonitor: HeartRateMonitor(), onStart: { _ in }, onBack: {})
         .frame(width: 760, height: 620)
 }
