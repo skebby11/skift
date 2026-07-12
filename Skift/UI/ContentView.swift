@@ -25,6 +25,9 @@ struct ContentView: View {
     @StateObject private var engine = RideEngine(route: .island)
     @StateObject private var demoPower = DemoPowerSource()
     private let rideStore = RideStore()
+    /// Saved-workout library for ERG mode; RideSetupView reads and edits it
+    /// (docs/erg-mode.md).
+    private let workoutStore = WorkoutStore()
 
     @State private var phase: GamePhase = .menu
     @State private var isDemoMode = false
@@ -69,7 +72,9 @@ struct ContentView: View {
                     route: engine.route,
                     isDemo: isDemoMode,
                     hrMonitor: hrMonitor,
+                    workoutStore: workoutStore,
                     onStart: { target in startRide(targetMeters: target) },
+                    onStartWorkout: { workout in startWorkout(workout) },
                     onBack: { phase = .menu }
                 )
             case .riding:
@@ -174,6 +179,19 @@ struct ContentView: View {
     // MARK: - Flow actions
 
     private func startRide(targetMeters: Double?) {
+        beginRide(targetMeters: targetMeters, mode: .sim)
+    }
+
+    /// ERG ride: no finish line — the engine completes the ride when the
+    /// workout's last step ends. Demo mode works too (control stays nil, the
+    /// target is sent nowhere) — useful to preview workouts (docs/erg-mode.md).
+    private func startWorkout(_ workout: Workout) {
+        beginRide(targetMeters: nil, mode: .workout(workout))
+    }
+
+    /// Shared start path: demo/real and sim/workout rides all go through the
+    /// same engine API — only the data source, control sink and mode differ.
+    private func beginRide(targetMeters: Double?, mode: RideMode) {
         engine.trainerDifficulty = trainerDifficulty
 
         // Demo and real rides go through the same engine API: only the data
@@ -195,7 +213,8 @@ struct ContentView: View {
             dataSource: dataSource,
             control: isDemoMode ? nil : trainer,
             profile: RiderProfile(riderKg: riderKg, bikeKg: bikeKg),
-            targetDistanceMeters: targetMeters
+            targetDistanceMeters: targetMeters,
+            mode: mode
         )
         phase = .riding
     }

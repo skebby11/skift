@@ -352,6 +352,72 @@ final class TrainerSessionTests: XCTestCase {
         XCTAssertEqual(commands.last, .write(FTMS.startOrResume()))
     }
 
+    // MARK: - ERG mode: target power, mutually exclusive with grade resend
+
+    func testSetTargetPowerWithoutControlEmitsNothingButRecordsIt() {
+        let session = TrainerSession()
+        var commands: [TrainerSession.Command] = []
+        session.onCommand = { commands.append($0) }
+        let id = UUID()
+        session.connect(id: id, name: "D500")
+        session.handle(.didConnect(name: "D500"))
+        session.handle(.didDiscoverFTMSService(found: true))
+        session.handle(.didDiscoverCharacteristics(indoorBikeData: true, controlPoint: true))
+
+        let countBeforeSetTargetPower = commands.count
+        session.setTargetPower(watts: 220)
+        XCTAssertEqual(commands.count, countBeforeSetTargetPower) // hasControl is still false: no write
+
+        session.handle(.didReceiveControlPointResponse(Data([0x80, 0x00, 0x01]))) // control granted
+
+        XCTAssertEqual(commands.last, .write(FTMS.setTargetPower(watts: 220)))
+    }
+
+    /// Grade (SIM) and target power (ERG) are mutually exclusive control
+    /// modes on the trainer: after a reconnect, only whichever was sent LAST
+    /// is re-sent — never both.
+    func testGradeThenTargetPowerResendsOnlyTargetPowerAfterReconnect() {
+        let id = UUID()
+        let (session, _) = connectedSession(id: id)
+        session.setGrade(percent: 3.5)
+        session.setTargetPower(watts: 200)
+
+        var commands: [TrainerSession.Command] = []
+        session.onCommand = { commands.append($0) }
+        session.handle(.didDisconnect(message: "Connection lost."))
+        session.handle(.reconnectTimerFired)
+        session.handle(.didConnect(name: "D500"))
+        session.handle(.didDiscoverFTMSService(found: true))
+        session.handle(.didDiscoverCharacteristics(indoorBikeData: true, controlPoint: true))
+        session.handle(.didReceiveControlPointResponse(Data([0x80, 0x00, 0x01])))
+
+        XCTAssertEqual(commands.suffix(2), [
+            .write(FTMS.startOrResume()),
+            .write(FTMS.setTargetPower(watts: 200)),
+        ])
+    }
+
+    func testTargetPowerThenGradeResendsOnlyGradeAfterReconnect() {
+        let id = UUID()
+        let (session, _) = connectedSession(id: id)
+        session.setTargetPower(watts: 200)
+        session.setGrade(percent: 3.5)
+
+        var commands: [TrainerSession.Command] = []
+        session.onCommand = { commands.append($0) }
+        session.handle(.didDisconnect(message: "Connection lost."))
+        session.handle(.reconnectTimerFired)
+        session.handle(.didConnect(name: "D500"))
+        session.handle(.didDiscoverFTMSService(found: true))
+        session.handle(.didDiscoverCharacteristics(indoorBikeData: true, controlPoint: true))
+        session.handle(.didReceiveControlPointResponse(Data([0x80, 0x00, 0x01])))
+
+        XCTAssertEqual(commands.suffix(2), [
+            .write(FTMS.startOrResume()),
+            .write(FTMS.setIndoorBikeSimulation(gradePercent: 3.5)),
+        ])
+    }
+
     func testSetGradeWithoutControlEmitsNothingButRecordsGrade() {
         let session = TrainerSession()
         var commands: [TrainerSession.Command] = []

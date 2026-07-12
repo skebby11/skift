@@ -68,8 +68,18 @@ public final class TrainerSession {
     /// user-initiated drop never schedules a reconnect (rule 5).
     private var userInitiatedDisconnect = false
 
-    /// Last grade passed to `setGrade`, resent once control is (re-)granted.
+    /// Last grade passed to `setGrade`, resent once control is (re-)granted —
+    /// but only if grade was the most recently issued control command
+    /// (see `lastControlKind`).
     private var lastGrade: Double?
+    /// Last target power passed to `setTargetPower`, resent once control is
+    /// (re-)granted — but only if it was the most recently issued command.
+    private var lastTargetPower: Int?
+    /// SIM (grade) and ERG (target power) are mutually exclusive control
+    /// modes on the trainer: only the most recently issued one is re-sent
+    /// after a reconnect, never both.
+    private enum LastControlKind { case grade, targetPower }
+    private var lastControlKind: LastControlKind?
 
     public init() {}
 
@@ -105,8 +115,19 @@ public final class TrainerSession {
 
     public func setGrade(percent: Double) {
         lastGrade = percent
+        lastControlKind = .grade
         if hasControl {
             emit(.write(FTMS.setIndoorBikeSimulation(gradePercent: percent)))
+        }
+    }
+
+    /// ERG-mode counterpart of `setGrade`: mirrors it exactly (records the
+    /// value, writes immediately when control is already held).
+    public func setTargetPower(watts: Int) {
+        lastTargetPower = watts
+        lastControlKind = .targetPower
+        if hasControl {
+            emit(.write(FTMS.setTargetPower(watts: watts)))
         }
     }
 
@@ -220,8 +241,19 @@ public final class TrainerSession {
             hasControl = response.result == .success
             if hasControl {
                 emit(.write(FTMS.startOrResume()))
-                if let lastGrade {
-                    emit(.write(FTMS.setIndoorBikeSimulation(gradePercent: lastGrade)))
+                // Re-send only whichever of grade/target-power was issued
+                // most recently — they're mutually exclusive trainer modes.
+                switch lastControlKind {
+                case .grade:
+                    if let lastGrade {
+                        emit(.write(FTMS.setIndoorBikeSimulation(gradePercent: lastGrade)))
+                    }
+                case .targetPower:
+                    if let lastTargetPower {
+                        emit(.write(FTMS.setTargetPower(watts: lastTargetPower)))
+                    }
+                case nil:
+                    break
                 }
             } else {
                 lastError = "Trainer refused control — is another app (e.g. Zwift) connected?"
