@@ -116,9 +116,11 @@ struct SettingsView: View {
                 if isConnecting {
                     ProgressView()
                         .controlSize(.small)
+                    Button("Cancel") { strava.cancelConnect() }
+                } else {
+                    Button("Connect Strava…") { connectStrava() }
+                        .disabled(stravaClientID.isEmpty || clientSecretDraft.isEmpty)
                 }
-                Button("Connect Strava…") { connectStrava() }
-                    .disabled(isConnecting || stravaClientID.isEmpty || clientSecretDraft.isEmpty)
             }
         }
 

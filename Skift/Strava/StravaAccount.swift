@@ -60,6 +60,11 @@ final class StravaAccount: ObservableObject {
 
     private let session: URLSession
 
+    /// The loopback listener of an in-flight `connect()`, kept so the flow
+    /// can be cancelled from the UI (`cancelConnect`) — without this, an
+    /// abandoned browser page would leave `connect()` suspended forever.
+    private var activeCallback: LoopbackCallbackServer?
+
     init(session: URLSession = .shared) {
         self.session = session
         // Restore the persisted connection on launch.
@@ -107,7 +112,11 @@ final class StravaAccount: ObservableObject {
         guard hasCredentials else { throw StravaError.missingCredentials }
 
         let callback = try LoopbackCallbackServer()
-        defer { callback.stop() }
+        activeCallback = callback
+        defer {
+            callback.stop()
+            activeCallback = nil
+        }
 
         let authorizeURL = StravaAPI.authorizationURL(
             clientID: clientID,
@@ -115,7 +124,14 @@ final class StravaAccount: ObservableObject {
         )
         NSWorkspace.shared.open(authorizeURL)
 
-        let code = try await callback.waitForCode()
+        // `stop()` is thread-safe and resume-once, so it doubles as the
+        // cancellation path for both structured task cancellation and the
+        // user-driven `cancelConnect()`.
+        let code = try await withTaskCancellationHandler {
+            try await callback.waitForCode()
+        } onCancel: {
+            callback.stop()
+        }
 
         let request = StravaAPI.tokenExchangeRequest(
             clientID: clientID,
@@ -134,6 +150,12 @@ final class StravaAccount: ObservableObject {
             athleteName = name
             KeychainStore.setString(name, account: KeychainAccount.athleteName)
         }
+    }
+
+    /// Aborts an in-flight `connect()` (e.g. the user abandoned the browser
+    /// page): the pending flow throws `CancellationError`.
+    func cancelConnect() {
+        activeCallback?.stop()
     }
 
     /// Forgets the Strava connection: tokens and athlete name are wiped from
