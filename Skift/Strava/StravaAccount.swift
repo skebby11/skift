@@ -60,13 +60,19 @@ final class StravaAccount: ObservableObject {
 
     private let session: URLSession
 
+    /// Pre-provisioned credentials for a login-only build (see
+    /// `StravaSecrets` and docs/strava-upload.md "Provisioned builds"). When
+    /// present, these win over the user-entered `clientID`/`clientSecret`.
+    private let secrets: StravaSecrets?
+
     /// The loopback listener of an in-flight `connect()`, kept so the flow
     /// can be cancelled from the UI (`cancelConnect`) — without this, an
     /// abandoned browser page would leave `connect()` suspended forever.
     private var activeCallback: LoopbackCallbackServer?
 
-    init(session: URLSession = .shared) {
+    init(session: URLSession = .shared, secrets: StravaSecrets? = StravaSecrets.bundled()) {
         self.session = session
+        self.secrets = secrets
         // Restore the persisted connection on launch.
         isConnected = loadTokens() != nil
         athleteName = KeychainStore.string(account: KeychainAccount.athleteName)
@@ -85,8 +91,20 @@ final class StravaAccount: ObservableObject {
         }
     }
 
+    /// Whether this build has pre-provisioned Strava credentials (a
+    /// `Secrets.plist` was bundled) — Settings hides the BYO fields when true.
+    var usesBundledCredentials: Bool { secrets != nil }
+
+    /// The client ID actually used for OAuth: bundled credentials take
+    /// precedence over the user-entered, BYO `clientID`.
+    private var effectiveClientID: String { secrets?.clientID ?? clientID }
+
+    /// The client secret actually used for OAuth: bundled credentials take
+    /// precedence over the user-entered, BYO `clientSecret`.
+    private var effectiveClientSecret: String { secrets?.clientSecret ?? clientSecret }
+
     private var hasCredentials: Bool {
-        !clientID.isEmpty && !clientSecret.isEmpty
+        !effectiveClientID.isEmpty && !effectiveClientSecret.isEmpty
     }
 
     // MARK: - Tokens (Keychain)
@@ -119,7 +137,7 @@ final class StravaAccount: ObservableObject {
         }
 
         let authorizeURL = StravaAPI.authorizationURL(
-            clientID: clientID,
+            clientID: effectiveClientID,
             redirectURI: "http://127.0.0.1:\(callback.port)/callback"
         )
         NSWorkspace.shared.open(authorizeURL)
@@ -134,8 +152,8 @@ final class StravaAccount: ObservableObject {
         }
 
         let request = StravaAPI.tokenExchangeRequest(
-            clientID: clientID,
-            clientSecret: clientSecret,
+            clientID: effectiveClientID,
+            clientSecret: effectiveClientSecret,
             code: code
         )
         let response = try await performTokenRequest(request)
@@ -242,8 +260,8 @@ final class StravaAccount: ObservableObject {
         guard let tokens = loadTokens() else { throw StravaError.notConnected }
         guard hasCredentials else { throw StravaError.missingCredentials }
         let request = StravaAPI.tokenRefreshRequest(
-            clientID: clientID,
-            clientSecret: clientSecret,
+            clientID: effectiveClientID,
+            clientSecret: effectiveClientSecret,
             refreshToken: tokens.refreshToken
         )
         let response = try await performTokenRequest(request)

@@ -51,7 +51,8 @@ single player, one map, your watts — no subscription, no account, no cloud.
 - 🚴 **Direct Strava upload** — one-click (or automatic) upload of completed
   rides as *VirtualRide* activities, from the summary or from history; bring
   your own Strava API app (strava.com/settings/api) — Skift is open source,
-  so no shared client secret ships with it
+  so no shared client secret ships with it (provisioned builds can bundle
+  their own, see docs/strava-upload.md)
 - ⚙️ **Settings** — rider/bike weight, FTP, trainer difficulty (⌘,)
 
 Out of scope for v1: multiplayer, racing, ANT+. See

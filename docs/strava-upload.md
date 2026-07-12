@@ -84,3 +84,18 @@ duplicate fixtures), `StravaTokens.isExpired` margins. `RideStoreTests`:
 `stravaActivityID` round-trip + old-JSON backward compat +
 `markUploaded`. The OAuth loopback and real HTTP stay manual (REVIEW: verify
 the full flow against the real Strava app once credentials are configured).
+
+## Provisioned builds
+
+BYO credentials stay the public default: Skift is open source, so no shared
+client secret ships in this repo. An owner distributing their own build can
+instead drop a gitignored `Skift/Secrets.plist` (keys `StravaClientID`,
+`StravaClientSecret` — see `Skift/Secrets.example.plist` for the shape) next
+to `Skift/Info.plist`; XcodeGen bundles it as a resource automatically when
+present, and its absence doesn't affect generation or the build (the
+CI/cloner case). `StravaSecrets.bundled()` reads it at runtime and
+`StravaAccount` prefers it over user-entered credentials
+(`usesBundledCredentials`); Settings then hides the Client ID/Secret fields
+and shows only Connect/Disconnect. A hosted token-exchange proxy — so even
+the loopback OAuth dance disappears — is a possible future upgrade, out of
+scope for now.
