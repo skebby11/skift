@@ -25,8 +25,13 @@ enum IslandTerrainBuilder {
                 let point = SIMD2<Float>(x, z)
                 let nearest = nearestRouteSample(to: point, route: route)
                 let inside = contains(point, polygon: route)
-                let land = inside || nearest.distance <= coastalBuffer
-                positions.append(SIMD3(x, terrainHeight(inside: inside, nearest: nearest), z))
+                let localCoast = coastalWidth(at: point)
+                let land = inside || nearest.distance <= localCoast
+                positions.append(SIMD3(
+                    x,
+                    terrainHeight(inside: inside, nearest: nearest, point: point, coastalWidth: localCoast),
+                    z
+                ))
                 isLand.append(land)
             }
         }
@@ -49,11 +54,11 @@ enum IslandTerrainBuilder {
             }
         }
 
-        let normals = vertexNormals(positions: positions, indices: indices)
+        let flat = flatShadedMesh(positions: positions, indices: indices)
         var descriptor = MeshDescriptor(name: "continuous-island")
-        descriptor.positions = MeshBuffers.Positions(positions)
-        descriptor.normals = MeshBuffers.Normals(normals)
-        descriptor.primitives = .triangles(indices)
+        descriptor.positions = MeshBuffers.Positions(flat.positions)
+        descriptor.normals = MeshBuffers.Normals(flat.normals)
+        descriptor.primitives = .triangles(flat.indices)
         return try MeshResource.generate(from: [descriptor])
     }
 
@@ -100,17 +105,42 @@ enum IslandTerrainBuilder {
         return NearestSample(position: best, distance: sqrt(bestSquared))
     }
 
-    private static func terrainHeight(inside: Bool, nearest: NearestSample) -> Float {
+    private static func terrainHeight(
+        inside: Bool,
+        nearest: NearestSample,
+        point: SIMD2<Float>,
+        coastalWidth: Float
+    ) -> Float {
+        let roadMask = smoothstep(edge0: 24, edge1: 170, value: nearest.distance)
+        let relief = terrainNoise(at: point) * 11 * roadMask
+
         if inside {
             // Preserve support directly under the road, then let the interior
             // sit lower so the authored route remains visually dominant.
             let inset = min(nearest.distance, 320) * 0.055
-            return max(1.2, nearest.position.y - 0.7 - inset)
+            return max(1.2, nearest.position.y - 0.7 - inset + relief)
         }
 
-        let t = min(max(nearest.distance / coastalBuffer, 0), 1)
+        let t = min(max(nearest.distance / coastalWidth, 0), 1)
         let smooth = t * t * (3 - 2 * t)
-        return simd_mix(nearest.position.y - 0.8, 0.7, smooth)
+        return simd_mix(nearest.position.y - 0.8 + relief * (1 - smooth), 0.7, smooth)
+    }
+
+    private static func coastalWidth(at point: SIMD2<Float>) -> Float {
+        let broad = sin(point.x * 0.0031 + point.y * 0.0017) * 42
+        let secondary = cos(point.x * 0.0063 - point.y * 0.0049) * 24
+        return coastalBuffer + broad + secondary
+    }
+
+    private static func terrainNoise(at point: SIMD2<Float>) -> Float {
+        let broad = sin(point.x * 0.0051) * cos(point.y * 0.0043)
+        let diagonal = sin((point.x + point.y) * 0.0087) * 0.38
+        return broad + diagonal
+    }
+
+    private static func smoothstep(edge0: Float, edge1: Float, value: Float) -> Float {
+        let t = min(max((value - edge0) / (edge1 - edge0), 0), 1)
+        return t * t * (3 - 2 * t)
     }
 
     /// Even-odd ray casting in XZ. Route samples are already ordered and form
@@ -131,20 +161,28 @@ enum IslandTerrainBuilder {
         return inside
     }
 
-    private static func vertexNormals(
+    private static func flatShadedMesh(
         positions: [SIMD3<Float>],
         indices: [UInt32]
-    ) -> [SIMD3<Float>] {
-        var normals = Array(repeating: SIMD3<Float>(0, 0, 0), count: positions.count)
+    ) -> (positions: [SIMD3<Float>], normals: [SIMD3<Float>], indices: [UInt32]) {
+        var flatPositions: [SIMD3<Float>] = []
+        var flatNormals: [SIMD3<Float>] = []
+        var flatIndices: [UInt32] = []
+        flatPositions.reserveCapacity(indices.count)
+        flatNormals.reserveCapacity(indices.count)
+        flatIndices.reserveCapacity(indices.count)
+
         for triangle in stride(from: 0, to: indices.count, by: 3) {
-            let ia = Int(indices[triangle])
-            let ib = Int(indices[triangle + 1])
-            let ic = Int(indices[triangle + 2])
-            let normal = simd_cross(positions[ib] - positions[ia], positions[ic] - positions[ia])
-            normals[ia] += normal
-            normals[ib] += normal
-            normals[ic] += normal
+            let a = positions[Int(indices[triangle])]
+            let b = positions[Int(indices[triangle + 1])]
+            let c = positions[Int(indices[triangle + 2])]
+            let cross = simd_cross(b - a, c - a)
+            let normal = simd_length_squared(cross) > 0 ? simd_normalize(cross) : SIMD3<Float>(0, 1, 0)
+            let base = UInt32(flatPositions.count)
+            flatPositions.append(contentsOf: [a, b, c])
+            flatNormals.append(contentsOf: [normal, normal, normal])
+            flatIndices.append(contentsOf: [base, base + 1, base + 2])
         }
-        return normals.map { simd_length_squared($0) > 0 ? simd_normalize($0) : SIMD3(0, 1, 0) }
+        return (flatPositions, flatNormals, flatIndices)
     }
 }
