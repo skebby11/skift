@@ -3,8 +3,12 @@ import XCTest
 
 private final class FakeTrainer: TrainerControlling {
     var receivedGrades: [Double] = []
+    var receivedTargetPowers: [Int] = []
     func setGrade(percent: Double) {
         receivedGrades.append(percent)
+    }
+    func setTargetPower(watts: Int) {
+        receivedTargetPowers.append(watts)
     }
 }
 
@@ -143,6 +147,153 @@ final class RideEngineTests: XCTestCase {
         }
         XCTAssertFalse(engine.isAutoPaused) // rolling downhill at 0 W ≠ paused
         XCTAssertGreaterThan(engine.elapsedSeconds, 50)
+    }
+
+    // MARK: - ERG / workout mode
+
+    /// Real `Timer.scheduledTimer` callbacks never fire during a synchronous
+    /// XCTest method (nothing pumps the run loop), so — unlike the `makeEngine`
+    /// helper above — these workout tests don't need a defensive `stop()`
+    /// right after `start()`; doing so here would trigger the "send 0 W on
+    /// stop" behavior before the test even begins driving `step(dt:)`.
+
+    func testWorkoutModeNeverSendsGrade() {
+        let workout = Workout(name: "W", steps: [
+            WorkoutStep(label: "Only", targetWatts: 200, durationSeconds: 100),
+        ])
+        let engine = RideEngine(route: .island)
+        let trainer = FakeTrainer()
+        engine.start(dataSource: { FTMS.IndoorBikeData(powerWatts: 200) }, control: trainer, mode: .workout(workout))
+
+        for _ in 0..<300 { // 30 simulated seconds
+            engine.step(dt: 0.1)
+        }
+
+        XCTAssertTrue(trainer.receivedGrades.isEmpty)
+    }
+
+    func testWorkoutModeSendsTargetPowerThrottledOnChange() {
+        let workout = Workout(name: "W", steps: [
+            WorkoutStep(label: "A", targetWatts: 150, durationSeconds: 2),
+            WorkoutStep(label: "B", targetWatts: 250, durationSeconds: 2),
+        ])
+        let engine = RideEngine(route: .island)
+        let trainer = FakeTrainer()
+        engine.start(dataSource: { FTMS.IndoorBikeData(powerWatts: 200) }, control: trainer, mode: .workout(workout))
+
+        for _ in 0..<30 { // 3 simulated seconds: crosses the A→B boundary at t=2s, stays under total (4s)
+            engine.step(dt: 0.1)
+        }
+
+        XCTAssertEqual(trainer.receivedTargetPowers, [150, 250])
+    }
+
+    func testWorkoutModeCompletesWhenTrackerFinishes() {
+        let workout = Workout(name: "W", steps: [
+            WorkoutStep(label: "Only", targetWatts: 200, durationSeconds: 2),
+        ])
+        let engine = RideEngine(route: .island)
+        let trainer = FakeTrainer()
+        engine.start(dataSource: { FTMS.IndoorBikeData(powerWatts: 200) }, control: trainer, mode: .workout(workout))
+
+        for _ in 0..<30 where !engine.isCompleted { // workout is 2 s long
+            engine.step(dt: 0.1)
+        }
+
+        XCTAssertTrue(engine.isCompleted)
+        XCTAssertFalse(engine.isRiding)
+        XCTAssertEqual(trainer.receivedTargetPowers.last, 0) // stop() sends 0 W once
+    }
+
+    func testWorkoutModeAutoPauseFreezesWorkoutClock() {
+        let workout = Workout(name: "W", steps: [
+            WorkoutStep(label: "Only", targetWatts: 200, durationSeconds: 100),
+        ])
+        let engine = RideEngine(route: .island)
+        engine.start(dataSource: { FTMS.IndoorBikeData(powerWatts: 0) }, control: nil, mode: .workout(workout))
+
+        for _ in 0..<50 { // 5 simulated seconds at 0 W / 0 speed → auto-paused throughout
+            engine.step(dt: 0.1)
+        }
+
+        XCTAssertTrue(engine.isAutoPaused)
+        XCTAssertEqual(engine.workoutState?.secondsLeftInStep, 100) // never counted down
+    }
+
+    func testWorkoutModeWithNilControlIsSafe() {
+        let workout = Workout(name: "W", steps: [
+            WorkoutStep(label: "Only", targetWatts: 200, durationSeconds: 2),
+        ])
+        let engine = RideEngine(route: .island)
+        engine.start(dataSource: { FTMS.IndoorBikeData(powerWatts: 200) }, control: nil, mode: .workout(workout))
+
+        for _ in 0..<30 {
+            engine.step(dt: 0.1)
+        }
+
+        XCTAssertTrue(engine.isCompleted)
+    }
+
+    func testStopInWorkoutModeSendsZeroWattsOnce() {
+        let workout = Workout(name: "W", steps: [
+            WorkoutStep(label: "Only", targetWatts: 200, durationSeconds: 100),
+        ])
+        let engine = RideEngine(route: .island)
+        let trainer = FakeTrainer()
+        engine.start(dataSource: { FTMS.IndoorBikeData(powerWatts: 200) }, control: trainer, mode: .workout(workout))
+        engine.step(dt: 0.1) // sends 200 W
+
+        engine.stop()
+        engine.stop() // idempotent: must not send a second 0 W
+
+        XCTAssertEqual(trainer.receivedTargetPowers, [200, 0])
+    }
+
+    func testSimModeWorkoutStateStaysNil() {
+        let (engine, _) = makeEngine()
+        engine.step(dt: 0.1)
+        XCTAssertNil(engine.workoutState)
+    }
+
+    func testWorkoutStateReflectsCurrentAndNextStep() {
+        let workout = Workout(name: "W", steps: [
+            WorkoutStep(label: "A", targetWatts: 150, durationSeconds: 2),
+            WorkoutStep(label: "B", targetWatts: 250, durationSeconds: 2),
+        ])
+        let engine = RideEngine(route: .island)
+        engine.start(dataSource: { FTMS.IndoorBikeData(powerWatts: 200) }, control: nil, mode: .workout(workout))
+        engine.step(dt: 0.1)
+
+        XCTAssertEqual(engine.workoutState?.currentStep.label, "A")
+        XCTAssertEqual(engine.workoutState?.nextStep?.label, "B")
+    }
+
+    func testSkipWorkoutStepAdvancesToNextStep() {
+        let workout = Workout(name: "W", steps: [
+            WorkoutStep(label: "A", targetWatts: 150, durationSeconds: 100),
+            WorkoutStep(label: "B", targetWatts: 250, durationSeconds: 100),
+        ])
+        let engine = RideEngine(route: .island)
+        engine.start(dataSource: { FTMS.IndoorBikeData(powerWatts: 200) }, control: nil, mode: .workout(workout))
+        engine.step(dt: 0.1) // rideClock = 0.1, inside step A
+
+        engine.skipWorkoutStep()
+        engine.step(dt: 0.1) // rideClock = 0.2
+
+        XCTAssertEqual(engine.workoutState?.currentStep.label, "B")
+    }
+
+    func testAdjustWorkoutWattsBumpsReportedTarget() {
+        let workout = Workout(name: "W", steps: [
+            WorkoutStep(label: "A", targetWatts: 150, durationSeconds: 100),
+        ])
+        let engine = RideEngine(route: .island)
+        engine.start(dataSource: { FTMS.IndoorBikeData(powerWatts: 200) }, control: nil, mode: .workout(workout))
+
+        engine.adjustWorkoutWatts(by: 5)
+        engine.step(dt: 0.1)
+
+        XCTAssertEqual(engine.workoutState?.currentStep.targetWatts, 155)
     }
 
     func testLapWrapsDistanceButKeepsTotal() {
