@@ -22,6 +22,11 @@ The coarse grid is an intentional low-poly art choice and keeps the mesh cheap
 enough for future iOS and tvOS targets. Fine coastline shaping, beaches and
 road shoulders remain separate follow-up passes.
 
+The verified in-app result is captured in
+[`art/island-terrain-runtime.png`](art/island-terrain-runtime.png). It confirms
+that the land is continuous and supports the full road; the uniform surface is
+the baseline for the follow-up relief and coastline-detail pass.
+
 ## Acceptance checks
 
 - No empty holes are visible inside the circuit.
