@@ -59,11 +59,12 @@ generateCylinder/Cone)
 
 ## Performance budget
 
-Merge aggressively, following `dashedCenterLine`'s single-mesh pattern: one
-merged mesh per element *type* per material (walls, posts, vine rows, flower
-patches → single ModelEntities; cypress/olive/bush groups → one entity per
-group, not per plant). Target: ≤ ~80 additional entities and ≤ ~4 new
-materials beyond palette colors. 60 fps on the render loop is untouchable.
+Merge aggressively, following `dashedCenterLine`'s single-mesh pattern: all
+geometry sharing a material is accumulated into one mesh. Trees, shrubs,
+walls, posts, vine rows and flower patches therefore produce **ten additional
+ModelEntities total**, independent of placement density. This is intentionally
+well below the original ≤80-entity ceiling. 60 fps on the render loop is
+untouchable.
 
 ## Palette additions (WorldPalette)
 
