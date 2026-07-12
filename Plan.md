@@ -229,8 +229,8 @@ add new ones as they emerge.*
 - [ ] **Art pass** (needs the screenshot + direction): reshape track control
   points, real coastline/terrain instead of ribbons, nicer avatar, skybox,
   camera polish
-- [ ] **M5 — ship v0.1**: app icon, code signing + notarization, GitHub
-  release with .dmg, README screenshots/demo video, supported-trainers list
+- [ ] **M5 — ship v0.1** (release pipeline ready — docs/release-pipeline.md;
+  icon, signing/notarization, screenshots still open)
 
 ### To-do — backlog (v1.x / v2, roughly ordered)
 

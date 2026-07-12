@@ -73,6 +73,9 @@ Tests: `⌘U` in Xcode, or:
 xcodebuild -project Skift.xcodeproj -scheme Skift -destination 'platform=macOS' test
 ```
 
+Tagged releases (`v*`) build a `.dmg` automatically via GitHub Actions
+(`.github/workflows/release.yml`, see `docs/release-pipeline.md`).
+
 ## How it works
 
 ```
