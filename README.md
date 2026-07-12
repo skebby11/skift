@@ -42,6 +42,8 @@ single player, one map, your watts — no subscription, no account, no cloud.
   chase camera, mini map, elevation profile
 - 📊 **Ride recording** — per-second samples, post-ride summary (avg/max
   power, elevation gain, energy), **TCX export → upload to Strava**
+- 🗂️ **Ride history** — every completed ride is saved locally; browse past
+  rides, re-export any of them to TCX, or delete them
 - ⚙️ **Settings** — rider/bike weight, FTP, trainer difficulty (⌘,)
 
 Out of scope for v1: multiplayer, racing, ERG workouts, ANT+. See

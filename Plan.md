@@ -223,6 +223,7 @@ add new ones as they emerge.*
   - [ ] Target ride (5 km) auto-completes into the summary
   - [ ] Export TCX; upload to Strava succeeds
   - [ ] With a HR strap (Garmin/Polar): pair, live bpm on HUD, bpm in exported TCX
+  - [ ] Ride history: completed ride appears, re-exported TCX matches, delete works
 - [ ] **Fix whatever the validation session finds** (expect BLE quirks and
   rough 3D — that's the point of the session)
 - [ ] **Art pass** (needs the screenshot + direction): reshape track control
