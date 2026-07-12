@@ -13,6 +13,10 @@ build/
 Skift/Info.plist
 Skift/Skift.entitlements
 
+# Optional pre-provisioned Strava credentials for login-only builds
+# (docs/strava-upload.md "Provisioned builds"); see Skift/Secrets.example.plist
+Skift/Secrets.plist
+
 # Swift Package Manager
 .build/
 .swiftpm/
