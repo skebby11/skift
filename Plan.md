@@ -232,7 +232,7 @@ add new ones as they emerge.*
   points, real coastline/terrain instead of ribbons, nicer avatar, skybox,
   camera polish
 - [ ] **M5 — ship v0.1** (release pipeline ready — docs/release-pipeline.md;
-  icon, signing/notarization, screenshots still open)
+  signing/notarization, screenshots still open)
 
 ### To-do — backlog (v1.x / v2, roughly ordered)
 
@@ -240,8 +240,7 @@ add new ones as they emerge.*
       state machine with infinite 1→30 s backoff — see docs/ble-reliability.md)
 - [ ] Italian localization (UI ships in English as the OSS lingua franca;
       add a String Catalog with `it` once strings stabilize)
-- [ ] App icon (needed for M5; must be original or CC0 — stock-icon licenses
-      like Flaticon/Icons8 require attribution and clash with Apache-2.0 redistribution)
+- [x] ~~App icon~~ (shipped in PR #12 — original design, license-safe)
 - [ ] Trainer test matrix beyond the D500 (Wahoo, Tacx, Elite via community)
 - [ ] FIT export (Strava-native format; TCX ships first)
 - [x] ~~Ride history persistence in-app~~ (promoted into v1.x on
